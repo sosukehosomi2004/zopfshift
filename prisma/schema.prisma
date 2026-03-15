@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  plan      Plan     @default(FREE)
+  stores    Store[]
+  createdAt DateTime @default(now())
+}
+
+model Store {
+  id             String         @id @default(cuid())
+  companyId      String
+  name           String
+  timezone       String         @default("Asia/Tokyo")
+  openTime       String
+  closeTime      String
+  company        Company        @relation(fields: [companyId], references: [id])
+  users          UserStore[]
+  shifts         Shift[]
+  shiftRequests  ShiftRequest[]
+  positions      Position[]
+  createdAt      DateTime       @default(now())
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  password       String
+  name           String
+  nameKana       String?
+  role           Role           @default(STAFF)
+  avatarUrl      String?
+  phone          String?
+  stores         UserStore[]
+  shifts         Shift[]
+  shiftRequests  ShiftRequest[]
+  notifications  Notification[]
+  createdAt      DateTime       @default(now())
+}
+
+model UserStore {
+  userId    String
+  storeId   String
+  role      StoreRole @default(STAFF)
+  color     String
+  maxHours  Int?
+  minHours  Int?
+  user      User      @relation(fields: [userId], references: [id])
+  store     Store     @relation(fields: [storeId], references: [id])
+
+  @@id([userId, storeId])
+}
+
+model Position {
+  id            String         @id @default(cuid())
+  storeId       String
+  name          String
+  color         String
+  store         Store          @relation(fields: [storeId], references: [id])
+  shifts        Shift[]
+  shiftSegments ShiftSegment[]
+}
+
+model Shift {
+  id         String      @id @default(cuid())
+  storeId    String
+  userId     String
+  positionId String?
+  date       DateTime
+  startTime  String
+  endTime    String
+  breakTime  Int         @default(60)
+  memo       String?
+  status     ShiftStatus @default(CONFIRMED)
+  store      Store       @relation(fields: [storeId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  position   Position?   @relation(fields: [positionId], references: [id])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model ShiftRequest {
+  id        String             @id @default(cuid())
+  storeId   String
+  userId    String
+  date      DateTime
+  startTime String
+  endTime   String
+  status    ShiftRequestStatus @default(PENDING)
+  memo      String?
+  store     Store              @relation(fields: [storeId], references: [id])
+  user      User               @relation(fields: [userId], references: [id])
+  segments  ShiftSegment[]
+  createdAt DateTime           @default(now())
+}
+
+model ShiftSegment {
+  id             String       @id @default(cuid())
+  shiftRequestId String
+  positionId     String?
+  startTime      String
+  endTime        String
+  isBreak        Boolean      @default(false)
+  shiftRequest   ShiftRequest @relation(fields: [shiftRequestId], references: [id], onDelete: Cascade)
+  position       Position?    @relation(fields: [positionId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  read      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+enum Plan {
+  FREE
+  STANDARD
+  PREMIUM
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum StoreRole {
+  ADMIN
+  STAFF
+}
+
+enum ShiftStatus {
+  CONFIRMED
+  TENTATIVE
+  ABSENT
+}
+
+enum ShiftRequestStatus {
+  PENDING
+  TENTATIVE
+  APPROVED
+  REJECTED
+}
