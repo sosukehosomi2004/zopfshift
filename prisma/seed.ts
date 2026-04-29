@@ -1,308 +1,565 @@
-import { PrismaClient } from '@prisma/client'
+import 'dotenv/config'
+import { PrismaClient, Workplace, EmploymentType, EmployeeRole, DayType, Proficiency } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 
-const COLORS = [
-  '#1E6FFA', '#FF6B35', '#22C55E', '#F59E0B', '#8B5CF6',
-  '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16',
-]
-
-const POSITIONS = [
-  { name: 'ホール', color: '#1E6FFA' },
-  { name: 'キッチン', color: '#FF6B35' },
-  { name: 'レジ', color: '#22C55E' },
-  { name: '社員', color: '#8B5CF6' },
-]
-
-const STAFF_NAMES = [
-  { name: '田中 太郎',   nameKana: 'たなか たろう' },
-  { name: '鈴木 花子',   nameKana: 'すずき はなこ' },
-  { name: '佐藤 次郎',   nameKana: 'さとう じろう' },
-  { name: '山田 三郎',   nameKana: 'やまだ さぶろう' },
-  { name: '伊藤 美咲',   nameKana: 'いとう みさき' },
-  { name: '渡辺 健太',   nameKana: 'わたなべ けんた' },
-  { name: '中村 さくら', nameKana: 'なかむら さくら' },
-  { name: '小林 大輔',   nameKana: 'こばやし だいすけ' },
-  { name: '加藤 里奈',   nameKana: 'かとう りな' },
-  { name: '吉田 翔太',   nameKana: 'よしだ しょうた' },
-]
-
-const SHIFT_PATTERNS = [
-  { startTime: '09:00', endTime: '17:00', breakTime: 60 },
-  { startTime: '10:00', endTime: '18:00', breakTime: 60 },
-  { startTime: '11:00', endTime: '19:00', breakTime: 60 },
-  { startTime: '12:00', endTime: '20:00', breakTime: 60 },
-  { startTime: '17:00', endTime: '22:00', breakTime: 30 },
-]
-
-function randomItem<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-// 時刻文字列を分に変換 / 分を時刻文字列に変換
-function toMin(t: string): number { const [h, m] = t.split(':').map(Number); return h * 60 + m }
-function toTime(m: number): string {
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-}
-
-// 確定時のセグメントを30分単位で生成
-// 例: 10:00-17:00 → [10:00-12:30 ホール, 12:30-13:00 休憩, 13:00-16:00 キッチン]
-//   （16:00-17:00は割り当てなし = 希望より短い確定）
-function generateSegments(
-  startTime: string, endTime: string, positionIds: string[]
-): { startTime: string; endTime: string; positionId: string; isBreak: boolean }[] {
-  const start = toMin(startTime)
-  const end = toMin(endTime)
-  const totalMin = end - start
-
-  // 20% の確率で希望より短く確定（30〜120分カット）
-  const cutMin = Math.random() < 0.2
-    ? (Math.floor(Math.random() * 4) + 1) * 30
-    : 0
-  const confirmedEnd = Math.max(start + 60, end - cutMin) // 最低1時間
-
-  const segments: { startTime: string; endTime: string; positionId: string; isBreak: boolean }[] = []
-  let cursor = start
-
-  // 長時間勤務（5h以上）は休憩を入れる
-  const needsBreak = (confirmedEnd - start) >= 300
-  // 休憩の位置: 勤務開始から3〜4時間後、30分or60分
-  const breakAfter = needsBreak ? start + (Math.random() < 0.5 ? 180 : 210) : -1
-  const breakDuration = needsBreak ? (Math.random() < 0.7 ? 60 : 30) : 0
-
-  // 40% の確率で2ポジション（分割）、60% で1ポジション
-  const numPositions = totalMin >= 240 && Math.random() < 0.4 ? 2 : 1
-  const pos1 = randomItem(positionIds)
-  const pos2 = numPositions === 2
-    ? randomItem(positionIds.filter(p => p !== pos1))
-    : pos1
-  // ポジション切り替え地点: 休憩直後 or 中間
-  const switchAt = needsBreak ? breakAfter + breakDuration : -1
-
-  while (cursor < confirmedEnd) {
-    // 休憩を挿入
-    if (needsBreak && cursor === breakAfter) {
-      const breakEnd = Math.min(cursor + breakDuration, confirmedEnd)
-      segments.push({ startTime: toTime(cursor), endTime: toTime(breakEnd), positionId: pos1, isBreak: true })
-      cursor = breakEnd
-      continue
-    }
-
-    // 次の境界を決定
-    let blockEnd = confirmedEnd
-    if (needsBreak && cursor < breakAfter) blockEnd = Math.min(blockEnd, breakAfter)
-    if (switchAt > 0 && cursor >= switchAt && cursor < confirmedEnd) blockEnd = confirmedEnd
-
-    const currentPos = (switchAt > 0 && cursor >= switchAt) ? pos2 : pos1
-    // 30分単位に丸める
-    blockEnd = Math.min(blockEnd, confirmedEnd)
-    blockEnd = start + Math.ceil((blockEnd - start) / 30) * 30
-    blockEnd = Math.min(blockEnd, confirmedEnd)
-
-    if (blockEnd > cursor) {
-      segments.push({ startTime: toTime(cursor), endTime: toTime(blockEnd), positionId: currentPos, isBreak: false })
-    }
-    cursor = blockEnd
-  }
-
-  return segments
-}
-
-function getDaysInMonth(year: number, month: number): Date[] {
-  const days: Date[] = []
-  const date = new Date(year, month, 1)
-  while (date.getMonth() === month) {
-    days.push(new Date(date))
-    date.setDate(date.getDate() + 1)
-  }
-  return days
-}
-
 async function main() {
-  console.log('🌱 シードデータを投入中...')
-
-  // リセット
-  await prisma.shiftSegment.deleteMany()
-  await prisma.shiftRequest.deleteMany()
-  await prisma.shift.deleteMany()
+  // 既存データ削除
   await prisma.notification.deleteMany()
-  await prisma.userStore.deleteMany()
-  await prisma.position.deleteMany()
-  await prisma.store.deleteMany()
-  await prisma.user.deleteMany()
-  await prisma.company.deleteMany()
+  await prisma.shiftAssignment.deleteMany()
+  await prisma.shiftCandidate.deleteMany()
+  await prisma.shiftPeriod.deleteMany()
+  await prisma.dayOffRequest.deleteMany()
+  await prisma.workplaceSlotRule.deleteMany()
+  await prisma.workplaceSlotSkill.deleteMany()
+  await prisma.workplaceSlot.deleteMany()
+  await prisma.workplaceStaffingRule.deleteMany()
+  await prisma.employeeSkill.deleteMany()
+  await prisma.employeeShiftTime.deleteMany()
+  await prisma.employeeSecondaryWorkplace.deleteMany()
+  await prisma.skill.deleteMany()
+  await prisma.employee.deleteMany()
+  await prisma.holiday.deleteMany()
+  await prisma.monthlyHolidayConfig.deleteMany()
 
-  // 会社作成
-  const company = await prisma.company.create({
-    data: { name: 'サンプル飲食店株式会社', plan: 'STANDARD' },
-  })
-  console.log('✅ 会社作成:', company.name)
+  const hash = await bcrypt.hash('password123', 10)
 
-  // 店舗作成
-  const store1 = await prisma.store.create({
+  // ===== 管理者 =====
+  await prisma.employee.create({
     data: {
-      id: 'store1',
-      companyId: company.id,
-      name: '渋谷店',
-      openTime: '09:00',
-      closeTime: '23:00',
+      lastName: '管理',
+      firstName: '太郎',
+      lastNameRomaji: 'Kanri',
+      firstNameRomaji: 'Taro',
+      email: 'admin@zopf.example.com',
+      password: hash,
+      role: EmployeeRole.ADMIN,
+      employmentType: EmploymentType.FULL_TIME,
+      primaryWorkplace: Workplace.OFFICE,
     },
   })
-  const store2 = await prisma.store.create({
-    data: {
-      companyId: company.id,
-      name: '新宿店',
-      openTime: '10:00',
-      closeTime: '22:00',
-    },
-  })
-  console.log('✅ 店舗作成:', store1.name, store2.name)
 
-  // ポジション作成
-  const positions = await Promise.all(
-    POSITIONS.map((p) => prisma.position.create({ data: { storeId: store1.id, ...p } }))
-  )
-  console.log('✅ ポジション作成:', positions.map((p) => p.name).join(', '))
-
-  const password = await bcrypt.hash('password123', 10)
-
-  // オーナー作成
-  const owner = await prisma.user.create({
-    data: { email: 'owner@example.com', password, name: '店長 オーナー', role: 'OWNER' },
-  })
-  await prisma.userStore.create({
-    data: { userId: owner.id, storeId: store1.id, role: 'ADMIN', color: '#8B5CF6' },
-  })
-
-  // マネージャー作成
-  const managers = await Promise.all([
-    prisma.user.create({ data: { email: 'manager1@example.com', password, name: '管理 一郎', role: 'MANAGER' } }),
-    prisma.user.create({ data: { email: 'manager2@example.com', password, name: '管理 二郎', role: 'MANAGER' } }),
-  ])
-  for (const m of managers) {
-    await prisma.userStore.create({
-      data: { userId: m.id, storeId: store1.id, role: 'ADMIN', color: '#F59E0B' },
-    })
-  }
-
-  // スタッフ作成
-  const staffUsers = await Promise.all(
-    STAFF_NAMES.map((s, i) =>
-      prisma.user.create({
-        data: { email: `staff${i + 1}@example.com`, password, name: s.name, nameKana: s.nameKana, role: 'STAFF' },
-      })
-    )
-  )
-  for (let i = 0; i < staffUsers.length; i++) {
-    await prisma.userStore.create({
-      data: {
-        userId: staffUsers[i].id,
-        storeId: store1.id,
-        role: 'STAFF',
-        color: COLORS[i % COLORS.length],
-        maxHours: 120,
-        minHours: 40,
-      },
-    })
-  }
-  console.log('✅ ユーザー作成:', 1 + managers.length + staffUsers.length, '名')
-
-  // ─── シフト希望 → セグメント確定のワークフロー ────────────────────────
-  // 1. スタッフがシフト希望を出す → ShiftRequest(PENDING)
-  // 2. 管理者が承認 → ShiftRequest(APPROVED) + ShiftSegment[] 作成
-  //    セグメント: 30分単位で役割・休憩を割り当て（希望より短くなることもある）
-  // 3. 却下 → ShiftRequest(REJECTED)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const months = [
-    { year: now.getFullYear(), month: now.getMonth() },
-    { year: now.getFullYear(), month: now.getMonth() + 1 },
+  // ===== 工場スキル定義 =====
+  const factorySkillNames = [
+    '平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯',
+    '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込',
+    '前麺', '後麺', 'シーター', '焼込',
   ]
 
-  let segmentCount = 0
-  let requestCount = 0
+  const factorySkills: Record<string, string> = {}
+  for (let i = 0; i < factorySkillNames.length; i++) {
+    const skill = await prisma.skill.create({
+      data: { workplace: Workplace.FACTORY, name: factorySkillNames[i], sortOrder: i },
+    })
+    factorySkills[factorySkillNames[i]] = skill.id
+  }
 
-  for (const { year, month } of months) {
-    const days = getDaysInMonth(year, month)
-    for (const day of days) {
-      const dow = day.getDay()
-      const isPast = day < today
+  // ===== カフェスキル定義 =====
+  const cafeSkillNames = ['K', 'S', 'KS']
+  const cafeSkills: Record<string, string> = {}
+  for (let i = 0; i < cafeSkillNames.length; i++) {
+    const skill = await prisma.skill.create({
+      data: { workplace: Workplace.CAFE, name: cafeSkillNames[i], sortOrder: i },
+    })
+    cafeSkills[cafeSkillNames[i]] = skill.id
+  }
 
-      for (const staff of staffUsers) {
-        const submitsRequest = dow !== 0 && Math.random() < 0.75
-        if (!submitsRequest) continue
+  // ===== 工場従業員データ =====
+  type FactoryEmployeeData = {
+    lastName: string
+    firstName: string
+    lastNameRomaji: string
+    firstNameRomaji: string
+    skills: string[]
+    secondaryWorkplaces: Workplace[]
+    cafeSkills?: { name: string; proficiency?: Proficiency }[]
+    floorProficiency?: Proficiency
+  }
 
-        const pattern = randomItem(SHIFT_PATTERNS)
-        const requestDate = new Date(year, month, day.getDate())
+  const factoryEmployees: FactoryEmployeeData[] = [
+    {
+      lastName: '上田', firstName: '怜', lastNameRomaji: 'Ueda', firstNameRomaji: 'Satoshi',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'K', proficiency: Proficiency.MID }],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '篠原', firstName: '遼', lastNameRomaji: 'Shinohara', firstNameRomaji: 'Ryo',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [],
+    },
+    {
+      lastName: '伊藤', firstName: '大毅', lastNameRomaji: 'Ito', firstNameRomaji: 'Daiki',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [
+        { name: 'K', proficiency: Proficiency.MID },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+    },
+    {
+      lastName: '福永', firstName: '将之', lastNameRomaji: 'Fukunaga', firstNameRomaji: 'Masayuki',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [],
+    },
+    {
+      lastName: '小松', firstName: '裕也', lastNameRomaji: 'Komatsu', firstNameRomaji: 'Yuya',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺'],
+      secondaryWorkplaces: [],
+    },
+    {
+      lastName: '三上', firstName: '大輔', lastNameRomaji: 'Mikami', firstNameRomaji: 'Daisuke',
+      skills: ['平日午前窯', '休日午前窯', '平日午後窯', '休日午後窯', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+    },
+    {
+      lastName: '泉', firstName: '百花', lastNameRomaji: 'Izumi', firstNameRomaji: 'Momoka',
+      skills: ['後麺', '焼込'],
+      secondaryWorkplaces: [Workplace.FLOOR],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '小笠原', firstName: '渚', lastNameRomaji: 'Ogasawara', firstNameRomaji: 'Nagisa',
+      skills: ['平日午後窯', '平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.LOW,
+    },
+    {
+      lastName: '吉田', firstName: '美咲', lastNameRomaji: 'Yoshida', firstNameRomaji: 'Misaki',
+      skills: ['平日午前仕込', '休日午前仕込', '平日午後仕込', '休日午後仕込', '前麺', '後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.LOW,
+    },
+    {
+      lastName: '高田', firstName: '省吾', lastNameRomaji: 'Takada', firstNameRomaji: 'Shogo',
+      skills: ['平日午後窯', '休日午後窯', '平日午後仕込', '前麺', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+    },
+    {
+      lastName: '後藤', firstName: '鈴奈', lastNameRomaji: 'Goto', firstNameRomaji: 'Suzuna',
+      skills: ['後麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '本間', firstName: '友哉', lastNameRomaji: 'Honma', firstNameRomaji: 'Tomoya',
+      skills: ['後麺', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+    },
+    {
+      lastName: '丹治', firstName: '崇人', lastNameRomaji: 'Tanji', firstNameRomaji: 'Takahito',
+      skills: ['前麺', 'シーター', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.MID }],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '宮本', firstName: '健吾', lastNameRomaji: 'Miyamoto', firstNameRomaji: 'Kengo',
+      skills: ['前麺'],
+      secondaryWorkplaces: [Workplace.FLOOR],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '坂本', firstName: '裕一朗', lastNameRomaji: 'Sakamoto', firstNameRomaji: 'Yuichiro',
+      skills: ['後麺', '焼込'],
+      secondaryWorkplaces: [Workplace.CAFE, Workplace.FLOOR],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '河野', firstName: 'あかり', lastNameRomaji: 'Kono', firstNameRomaji: 'Akari',
+      skills: ['後麺'],
+      secondaryWorkplaces: [Workplace.FLOOR],
+      floorProficiency: Proficiency.MID,
+    },
+  ]
 
-        // ステータス決定
-        const roll = Math.random()
-        let status: 'PENDING' | 'APPROVED' | 'REJECTED'
-        if (isPast) {
-          status = roll < 0.7 ? 'APPROVED' : roll < 0.8 ? 'REJECTED' : 'PENDING'
-        } else {
-          status = roll < 0.2 ? 'APPROVED' : roll < 0.3 ? 'REJECTED' : 'PENDING'
-        }
+  for (let i = 0; i < factoryEmployees.length; i++) {
+    const data = factoryEmployees[i]
+    const emp = await prisma.employee.create({
+      data: {
+        lastName: data.lastName,
+        firstName: data.firstName,
+        lastNameRomaji: data.lastNameRomaji,
+        firstNameRomaji: data.firstNameRomaji,
+        email: `factory${i + 1}@zopf.example.com`,
+        password: hash,
+        role: EmployeeRole.STAFF,
+        employmentType: EmploymentType.FULL_TIME,
+        primaryWorkplace: Workplace.FACTORY,
+        floorProficiency: data.floorProficiency,
+      },
+    })
 
-        if (status === 'APPROVED') {
-          // ─── 確定: ShiftRequest(APPROVED) + ShiftSegment[] ───
-          const segments = generateSegments(
-            pattern.startTime, pattern.endTime, positions.map(p => p.id)
-          )
+    for (const skillName of data.skills) {
+      await prisma.employeeSkill.create({
+        data: { employeeId: emp.id, skillId: factorySkills[skillName] },
+      })
+    }
 
-          const request = await prisma.shiftRequest.create({
-            data: {
-              storeId: store1.id,
-              userId: staff.id,
-              date: requestDate,
-              startTime: pattern.startTime,
-              endTime: pattern.endTime,
-              status: 'APPROVED',
-            },
-          })
-          requestCount++
+    for (const wp of data.secondaryWorkplaces) {
+      await prisma.employeeSecondaryWorkplace.create({
+        data: { employeeId: emp.id, workplace: wp },
+      })
+    }
 
-          for (const seg of segments) {
-            await prisma.shiftSegment.create({
-              data: {
-                shiftRequestId: request.id,
-                positionId: seg.isBreak ? undefined : seg.positionId,
-                startTime: seg.startTime,
-                endTime: seg.endTime,
-                isBreak: seg.isBreak,
-              },
-            })
-            segmentCount++
-          }
-        } else {
-          // ─── 承認待ち or 却下: ShiftRequest のみ ───
-          await prisma.shiftRequest.create({
-            data: {
-              storeId: store1.id,
-              userId: staff.id,
-              date: requestDate,
-              startTime: pattern.startTime,
-              endTime: pattern.endTime,
-              status,
-              memo: status === 'REJECTED' ? '他のスタッフと重複' : undefined,
-            },
-          })
-          requestCount++
-        }
+    if (data.cafeSkills) {
+      for (const cs of data.cafeSkills) {
+        await prisma.employeeSkill.create({
+          data: { employeeId: emp.id, skillId: cafeSkills[cs.name], proficiency: cs.proficiency },
+        })
       }
     }
   }
-  console.log('✅ シフト希望:', requestCount, '件')
-  console.log('✅ セグメント:', segmentCount, '件')
 
-  console.log('\n🎉 完了！ログイン情報:')
-  console.log('  オーナー: owner@example.com / password123')
-  console.log('  スタッフ: staff1@example.com / password123')
+  // ===== カフェ従業員データ =====
+  type CafeEmployeeData = {
+    lastName: string
+    firstName: string
+    lastNameRomaji: string
+    firstNameRomaji: string
+    employmentType: 'FULL_TIME' | 'PART_TIME'
+    skills: { name: string; proficiency?: Proficiency }[]
+    secondaryWorkplaces: Workplace[]
+    floorProficiency?: Proficiency
+  }
+
+  const cafeEmployees: CafeEmployeeData[] = [
+    {
+      lastName: '末永', firstName: '美咲', lastNameRomaji: 'Suenaga', firstNameRomaji: 'Misaki', employmentType: 'FULL_TIME',
+      skills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+      secondaryWorkplaces: [Workplace.FLOOR],
+      floorProficiency: Proficiency.LOW,
+    },
+    {
+      lastName: '池田', firstName: '麻衣', lastNameRomaji: 'Ikeda', firstNameRomaji: 'Mai', employmentType: 'FULL_TIME',
+      skills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+      secondaryWorkplaces: [Workplace.FLOOR],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '斎木', firstName: '康平', lastNameRomaji: 'Saiki', firstNameRomaji: 'Kohei', employmentType: 'FULL_TIME',
+      skills: [
+        { name: 'K', proficiency: Proficiency.HIGH },
+        { name: 'S', proficiency: Proficiency.MID },
+        { name: 'KS' },
+      ],
+      secondaryWorkplaces: [],
+    },
+    {
+      lastName: '廣瀬', firstName: '堅太郎', lastNameRomaji: 'Hirose', firstNameRomaji: 'Kentaro', employmentType: 'FULL_TIME',
+      skills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      secondaryWorkplaces: [],
+    },
+    // カフェパート
+    {
+      lastName: '佐藤', firstName: '美奈子', lastNameRomaji: 'Sato', firstNameRomaji: 'Minako', employmentType: 'PART_TIME',
+      skills: [], secondaryWorkplaces: [Workplace.OTHER],
+    },
+    {
+      lastName: '山田', firstName: '幸恵', lastNameRomaji: 'Yamada', firstNameRomaji: 'Yukie', employmentType: 'PART_TIME',
+      skills: [], secondaryWorkplaces: [Workplace.OTHER, Workplace.FLOOR],
+    },
+    {
+      lastName: '大津', firstName: '正子', lastNameRomaji: 'Otsu', firstNameRomaji: 'Masako', employmentType: 'PART_TIME',
+      skills: [], secondaryWorkplaces: [Workplace.OTHER],
+    },
+    {
+      lastName: '相多', firstName: '礼子', lastNameRomaji: 'Aita', firstNameRomaji: 'Reiko', employmentType: 'PART_TIME',
+      skills: [], secondaryWorkplaces: [Workplace.OTHER, Workplace.FLOOR],
+    },
+    {
+      lastName: '井上', firstName: '太佳子', lastNameRomaji: 'Inoue', firstNameRomaji: 'Takako', employmentType: 'PART_TIME',
+      skills: [], secondaryWorkplaces: [Workplace.OTHER, Workplace.FLOOR],
+    },
+  ]
+
+  for (let i = 0; i < cafeEmployees.length; i++) {
+    const data = cafeEmployees[i]
+    const emp = await prisma.employee.create({
+      data: {
+        lastName: data.lastName,
+        firstName: data.firstName,
+        lastNameRomaji: data.lastNameRomaji,
+        firstNameRomaji: data.firstNameRomaji,
+        email: `cafe${i + 1}@zopf.example.com`,
+        password: hash,
+        role: EmployeeRole.STAFF,
+        employmentType: data.employmentType as EmploymentType,
+        primaryWorkplace: Workplace.CAFE,
+        floorProficiency: data.floorProficiency,
+      },
+    })
+
+    for (const cs of data.skills) {
+      await prisma.employeeSkill.create({
+        data: { employeeId: emp.id, skillId: cafeSkills[cs.name], proficiency: cs.proficiency },
+      })
+    }
+
+    for (const wp of data.secondaryWorkplaces) {
+      await prisma.employeeSecondaryWorkplace.create({
+        data: { employeeId: emp.id, workplace: wp },
+      })
+    }
+  }
+
+  // ===== フロア従業員データ =====
+  // フロアのスキルはまだ定義していないため、スキル紐付けはスキップ
+  type FloorEmployeeData = {
+    lastName: string
+    firstName: string
+    lastNameRomaji: string
+    firstNameRomaji: string
+    employmentType: 'FULL_TIME' | 'PART_TIME'
+    secondaryWorkplaces: Workplace[]
+    cafeSkills?: { name: string; proficiency?: Proficiency }[]
+    factorySkills?: string[]
+    floorProficiency: Proficiency
+  }
+
+  const floorEmployees: FloorEmployeeData[] = [
+    {
+      lastName: '上田', firstName: '美樹子', lastNameRomaji: 'Ueda', firstNameRomaji: 'Mikiko', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '篠原', firstName: 'ゆい', lastNameRomaji: 'Shinohara', firstNameRomaji: 'Yui', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '田中', firstName: '拓人', lastNameRomaji: 'Tanaka', firstNameRomaji: 'Takuto', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [Workplace.FACTORY], factorySkills: ['前麺', '後麺'],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '三好', firstName: '由起', lastNameRomaji: 'Miyoshi', firstNameRomaji: 'Yuki', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '小川', firstName: '諒', lastNameRomaji: 'Ogawa', firstNameRomaji: 'Ryo', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '木村', firstName: '夏菜', lastNameRomaji: 'Kimura', firstNameRomaji: 'Natsuna', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '舩津', firstName: '蓮', lastNameRomaji: 'Funatsu', firstNameRomaji: 'Ren', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [Workplace.CAFE],
+      cafeSkills: [{ name: 'S', proficiency: Proficiency.LOW }],
+      floorProficiency: Proficiency.LOW,
+    },
+    {
+      lastName: '曽我', firstName: '美由佳', lastNameRomaji: 'Soga', firstNameRomaji: 'Miyuka', employmentType: 'FULL_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.LOW,
+    },
+  ]
+
+  for (let i = 0; i < floorEmployees.length; i++) {
+    const data = floorEmployees[i]
+    const emp = await prisma.employee.create({
+      data: {
+        lastName: data.lastName,
+        firstName: data.firstName,
+        lastNameRomaji: data.lastNameRomaji,
+        firstNameRomaji: data.firstNameRomaji,
+        email: `floor${i + 1}@zopf.example.com`,
+        password: hash,
+        role: EmployeeRole.STAFF,
+        employmentType: data.employmentType as EmploymentType,
+        primaryWorkplace: Workplace.FLOOR,
+        floorProficiency: data.floorProficiency,
+      },
+    })
+
+    for (const wp of data.secondaryWorkplaces) {
+      await prisma.employeeSecondaryWorkplace.create({
+        data: { employeeId: emp.id, workplace: wp },
+      })
+    }
+
+    if (data.cafeSkills) {
+      for (const cs of data.cafeSkills) {
+        await prisma.employeeSkill.create({
+          data: { employeeId: emp.id, skillId: cafeSkills[cs.name], proficiency: cs.proficiency },
+        })
+      }
+    }
+
+    if (data.factorySkills) {
+      for (const skillName of data.factorySkills) {
+        await prisma.employeeSkill.create({
+          data: { employeeId: emp.id, skillId: factorySkills[skillName] },
+        })
+      }
+    }
+  }
+
+  // ===== 工場スロット定義 =====
+  const factorySlotDefs = [
+    { name: '午前窯', sortOrder: 1, skillName: '午前窯' },
+    { name: '午前仕込', sortOrder: 2, skillName: '午前仕込' },
+    { name: '午後仕込', sortOrder: 3, skillName: '午後仕込' },
+    { name: '前麺', sortOrder: 4, skillName: '前麺' },
+    { name: '午後窯', sortOrder: 5, skillName: '午後窯' },
+    { name: '後麺①', sortOrder: 6, skillName: '後麺' },
+    { name: '後麺②', sortOrder: 7, skillName: '後麺' },
+    { name: 'シーター', sortOrder: 8, skillName: 'シーター' },
+    { name: '焼込①', sortOrder: 9, skillName: '焼込' },
+    { name: '焼込②', sortOrder: 10, skillName: '焼込' },
+  ]
+
+  for (const slot of factorySlotDefs) {
+    const created = await prisma.workplaceSlot.create({
+      data: { workplace: Workplace.FACTORY, name: slot.name, sortOrder: slot.sortOrder },
+    })
+
+    // スロットに必要なスキルを紐付け（窯・仕込は平日/休日の2スキル）
+    if (['午前窯', '午前仕込', '午後仕込', '午後窯'].includes(slot.skillName)) {
+      await prisma.workplaceSlotSkill.create({
+        data: { workplaceSlotId: created.id, skillId: factorySkills[`平日${slot.skillName}`] },
+      })
+      await prisma.workplaceSlotSkill.create({
+        data: { workplaceSlotId: created.id, skillId: factorySkills[`休日${slot.skillName}`] },
+      })
+    } else {
+      await prisma.workplaceSlotSkill.create({
+        data: { workplaceSlotId: created.id, skillId: factorySkills[slot.skillName] },
+      })
+    }
+
+    // スロットルール
+    if (slot.name === '後麺①' || slot.name === '焼込①') {
+      // 月〜木は 後麺① or 焼込① のどちらか
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.WEEKDAY_MON_THU, isRequired: false, groupKey: 'slot6or9' },
+      })
+    } else {
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.WEEKDAY_MON_THU, isRequired: true },
+      })
+    }
+
+    // 金・休日は全スロット必須
+    await prisma.workplaceSlotRule.create({
+      data: { workplaceSlotId: created.id, dayType: DayType.FRIDAY, isRequired: true },
+    })
+    await prisma.workplaceSlotRule.create({
+      data: { workplaceSlotId: created.id, dayType: DayType.HOLIDAY, isRequired: true },
+    })
+  }
+
+  // ===== カフェスロット定義 =====
+  const cafeSlotDefs = [
+    { name: 'K', sortOrder: 1, skillName: 'K' },
+    { name: 'S', sortOrder: 2, skillName: 'S' },
+    { name: 'KS', sortOrder: 3, skillName: 'KS' },
+    { name: 'S②', sortOrder: 4, skillName: 'S' },
+  ]
+
+  for (const slot of cafeSlotDefs) {
+    const created = await prisma.workplaceSlot.create({
+      data: { workplace: Workplace.CAFE, name: slot.name, sortOrder: slot.sortOrder },
+    })
+
+    await prisma.workplaceSlotSkill.create({
+      data: { workplaceSlotId: created.id, skillId: cafeSkills[slot.skillName] },
+    })
+
+    if (slot.name === 'S②') {
+      // S②は休日のみ
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.HOLIDAY, isRequired: true },
+      })
+    } else {
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.WEEKDAY_MON_THU, isRequired: true },
+      })
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.FRIDAY, isRequired: true },
+      })
+      await prisma.workplaceSlotRule.create({
+        data: { workplaceSlotId: created.id, dayType: DayType.HOLIDAY, isRequired: true },
+      })
+    }
+  }
+
+  // ===== 勤務場所の稼働人数ルール =====
+  await prisma.workplaceStaffingRule.createMany({
+    data: [
+      // 工場
+      { workplace: Workplace.FACTORY, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 9 },
+      { workplace: Workplace.FACTORY, dayType: DayType.FRIDAY, requiredCount: 10 },
+      { workplace: Workplace.FACTORY, dayType: DayType.HOLIDAY, requiredCount: 10 },
+      // カフェ
+      { workplace: Workplace.CAFE, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 3 },
+      { workplace: Workplace.CAFE, dayType: DayType.FRIDAY, requiredCount: 3 },
+      { workplace: Workplace.CAFE, dayType: DayType.HOLIDAY, requiredCount: 4 },
+      // フロア
+      { workplace: Workplace.FLOOR, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 5, minFullTimeCount: 3, baseFullTimeCount: 3 },
+      { workplace: Workplace.FLOOR, dayType: DayType.FRIDAY, requiredCount: 5, minFullTimeCount: 3, baseFullTimeCount: 3 },
+      { workplace: Workplace.FLOOR, dayType: DayType.HOLIDAY, requiredCount: 7, minFullTimeCount: 4, baseFullTimeCount: 4 },
+    ],
+  })
+
+  // ===== 公休数設定（2026年度サンプル: 各月8日） =====
+  for (let m = 1; m <= 12; m++) {
+    await prisma.monthlyHolidayConfig.create({
+      data: { fiscalYear: 2026, month: m, holidayCount: 8 },
+    })
+  }
+
+  console.log('Seed completed successfully!')
+  console.log('Admin: admin@zopf.example.com / password123')
+  console.log('Factory staff: factory1@zopf.example.com ~ factory16@zopf.example.com / password123')
+  console.log('Cafe staff: cafe1@zopf.example.com ~ cafe4@zopf.example.com / password123')
+  console.log('Floor staff: floor1@zopf.example.com ~ floor8@zopf.example.com / password123')
 }
 
 main()
-  .catch(console.error)
-  .finally(() => prisma.$disconnect())
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

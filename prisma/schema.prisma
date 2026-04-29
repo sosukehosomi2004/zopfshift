@@ -6,148 +6,267 @@ datasource db {
   provider = "postgresql"
 }
 
-model Company {
-  id        String   @id @default(cuid())
-  name      String
-  plan      Plan     @default(FREE)
-  stores    Store[]
-  createdAt DateTime @default(now())
+// ===== 従業員 =====
+model Employee {
+  id              String         @id @default(cuid())
+  employeeNumber  Int            @unique @default(autoincrement())
+  lastName        String
+  firstName       String
+  lastNameRomaji  String
+  firstNameRomaji String
+  email           String         @unique
+  password        String
+  role            EmployeeRole   @default(STAFF)
+  employmentType  EmploymentType
+  primaryWorkplace Workplace
+  floorProficiency Proficiency?  // フロアで働ける従業員のフロア習熟度
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  secondaryWorkplaces EmployeeSecondaryWorkplace[]
+  availableShiftTimes EmployeeShiftTime[]
+  skills              EmployeeSkill[]
+  dayOffRequests      DayOffRequest[]
+  shiftAssignments    ShiftAssignment[]
+  notifications       Notification[]
 }
 
-model Store {
-  id             String         @id @default(cuid())
-  companyId      String
-  name           String
-  timezone       String         @default("Asia/Tokyo")
-  openTime       String
-  closeTime      String
-  company        Company        @relation(fields: [companyId], references: [id])
-  users          UserStore[]
-  shifts         Shift[]
-  shiftRequests  ShiftRequest[]
-  positions      Position[]
-  createdAt      DateTime       @default(now())
-}
-
-model User {
-  id             String         @id @default(cuid())
-  email          String         @unique
-  password       String
-  name           String
-  nameKana       String?
-  role           Role           @default(STAFF)
-  avatarUrl      String?
-  phone          String?
-  stores         UserStore[]
-  shifts         Shift[]
-  shiftRequests  ShiftRequest[]
-  notifications  Notification[]
-  createdAt      DateTime       @default(now())
-}
-
-model UserStore {
-  userId    String
-  storeId   String
-  role      StoreRole @default(STAFF)
-  color     String
-  maxHours  Int?
-  minHours  Int?
-  user      User      @relation(fields: [userId], references: [id])
-  store     Store     @relation(fields: [storeId], references: [id])
-
-  @@id([userId, storeId])
-}
-
-model Position {
-  id            String         @id @default(cuid())
-  storeId       String
-  name          String
-  color         String
-  store         Store          @relation(fields: [storeId], references: [id])
-  shifts        Shift[]
-  shiftSegments ShiftSegment[]
-}
-
-model Shift {
-  id         String      @id @default(cuid())
-  storeId    String
-  userId     String
-  positionId String?
-  date       DateTime
-  startTime  String
-  endTime    String
-  breakTime  Int         @default(60)
-  memo       String?
-  status     ShiftStatus @default(CONFIRMED)
-  store      Store       @relation(fields: [storeId], references: [id])
-  user       User        @relation(fields: [userId], references: [id])
-  position   Position?   @relation(fields: [positionId], references: [id])
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-}
-
-model ShiftRequest {
-  id        String             @id @default(cuid())
-  storeId   String
-  userId    String
-  date      DateTime
-  startTime String
-  endTime   String
-  status    ShiftRequestStatus @default(PENDING)
-  memo      String?
-  store     Store              @relation(fields: [storeId], references: [id])
-  user      User               @relation(fields: [userId], references: [id])
-  segments  ShiftSegment[]
-  createdAt DateTime           @default(now())
-}
-
-model ShiftSegment {
-  id             String       @id @default(cuid())
-  shiftRequestId String
-  positionId     String?
-  startTime      String
-  endTime        String
-  isBreak        Boolean      @default(false)
-  shiftRequest   ShiftRequest @relation(fields: [shiftRequestId], references: [id], onDelete: Cascade)
-  position       Position?    @relation(fields: [positionId], references: [id])
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  type      String
-  message   String
-  read      Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-}
-
-enum Plan {
-  FREE
-  STANDARD
-  PREMIUM
-}
-
-enum Role {
-  OWNER
-  MANAGER
-  STAFF
-}
-
-enum StoreRole {
+enum EmployeeRole {
   ADMIN
   STAFF
 }
 
-enum ShiftStatus {
-  CONFIRMED
-  TENTATIVE
-  ABSENT
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
 }
 
-enum ShiftRequestStatus {
+enum Workplace {
+  FACTORY
+  CAFE
+  FLOOR
+  OFFICE
+  OTHER
+}
+
+enum ShiftTimeSlot {
+  EARLY
+  DAYTIME
+  CLOSE
+}
+
+// 習熟度 ▲(LOW) / ○(MID) / ◎(HIGH)
+enum Proficiency {
+  LOW
+  MID
+  HIGH
+}
+
+// 従業員の移動可能な勤務場所
+model EmployeeSecondaryWorkplace {
+  id         String    @id @default(cuid())
+  employeeId String
+  workplace  Workplace
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, workplace])
+}
+
+// パート従業員の対応可能な時間帯
+model EmployeeShiftTime {
+  id         String        @id @default(cuid())
+  employeeId String
+  timeSlot   ShiftTimeSlot
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, timeSlot])
+}
+
+// ===== スキル（ポジション） =====
+model Skill {
+  id        String    @id @default(cuid())
+  workplace Workplace
+  name      String
+  sortOrder Int       @default(0)
+
+  employeeSkills EmployeeSkill[]
+  slotSkills     WorkplaceSlotSkill[]
+
+  @@unique([workplace, name])
+}
+
+// 従業員が持つスキル
+model EmployeeSkill {
+  id          String       @id @default(cuid())
+  employeeId  String
+  skillId     String
+  proficiency Proficiency? // カフェK/S用。他のスキルはnull
+  employee    Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  skill       Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, skillId])
+}
+
+// ===== 勤務場所の定数設定 =====
+
+// 勤務場所 x 曜日タイプ別の必要人数
+model WorkplaceStaffingRule {
+  id                String    @id @default(cuid())
+  workplace         Workplace
+  dayType           DayType
+  requiredCount     Int
+  minFullTimeCount  Int?
+  baseFullTimeCount Int?
+
+  @@unique([workplace, dayType])
+}
+
+enum DayType {
+  WEEKDAY_MON_THU
+  FRIDAY
+  HOLIDAY
+}
+
+// 勤務場所のポジションスロット定義（工場の10スロットなど）
+model WorkplaceSlot {
+  id        String    @id @default(cuid())
+  workplace Workplace
+  name      String
+  sortOrder Int
+
+  skills WorkplaceSlotSkill[]
+  rules  WorkplaceSlotRule[]
+
+  @@unique([workplace, name])
+}
+
+// スロットに必要なスキル
+model WorkplaceSlotSkill {
+  id              String        @id @default(cuid())
+  workplaceSlotId String
+  skillId         String
+  workplaceSlot   WorkplaceSlot @relation(fields: [workplaceSlotId], references: [id], onDelete: Cascade)
+  skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([workplaceSlotId, skillId])
+}
+
+// スロットの曜日タイプ別ルール
+model WorkplaceSlotRule {
+  id              String        @id @default(cuid())
+  workplaceSlotId String
+  dayType         DayType
+  isRequired      Boolean       @default(true)
+  groupKey        String?
+
+  workplaceSlot WorkplaceSlot @relation(fields: [workplaceSlotId], references: [id], onDelete: Cascade)
+
+  @@unique([workplaceSlotId, dayType])
+}
+
+// ===== 公休数設定 =====
+model MonthlyHolidayConfig {
+  id           String @id @default(cuid())
+  fiscalYear   Int
+  month        Int
+  holidayCount Int
+
+  @@unique([fiscalYear, month])
+}
+
+// ===== 休み希望・有休申請 =====
+model DayOffRequest {
+  id         String        @id @default(cuid())
+  employeeId String
+  date       DateTime      @db.Date
+  type       DayOffType
+  status     RequestStatus @default(PENDING)
+  memo       String?
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([employeeId, date])
+}
+
+enum DayOffType {
+  DAY_OFF
+  PAID_LEAVE
+}
+
+enum RequestStatus {
   PENDING
-  TENTATIVE
   APPROVED
   REJECTED
+}
+
+// ===== シフト期間・生成・確定 =====
+
+model ShiftPeriod {
+  id        String       @id @default(cuid())
+  startDate DateTime     @db.Date
+  endDate   DateTime     @db.Date
+  label     String
+  status    PeriodStatus @default(DRAFT)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  candidates ShiftCandidate[]
+}
+
+enum PeriodStatus {
+  DRAFT
+  GENERATING
+  REVIEW
+  CONFIRMED
+}
+
+// 生成されたシフト候補
+model ShiftCandidate {
+  id             String      @id @default(cuid())
+  shiftPeriodId  String
+  candidateIndex Int
+  score          Float?
+  isSelected     Boolean     @default(false)
+  shiftPeriod    ShiftPeriod @relation(fields: [shiftPeriodId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now())
+
+  assignments ShiftAssignment[]
+
+  @@unique([shiftPeriodId, candidateIndex])
+}
+
+// 日ごとの出勤割当
+model ShiftAssignment {
+  id               String         @id @default(cuid())
+  shiftCandidateId String
+  employeeId       String
+  date             DateTime       @db.Date
+  workplace        Workplace
+  workplaceSlotId  String?
+  shiftTimeSlot    ShiftTimeSlot?
+  isMoved          Boolean        @default(false)
+
+  shiftCandidate ShiftCandidate @relation(fields: [shiftCandidateId], references: [id], onDelete: Cascade)
+  employee       Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftCandidateId, employeeId, date])
+}
+
+// ===== 祝日マスタ =====
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @db.Date @unique
+  name String
+}
+
+// ===== 通知 =====
+model Notification {
+  id         String   @id @default(cuid())
+  employeeId String
+  type       String
+  message    String
+  read       Boolean  @default(false)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 }

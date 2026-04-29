@@ -5,30 +5,34 @@ import type { NextRequest } from 'next/server'
 
 const { auth } = NextAuth(authConfig)
 
-// 管理者専用パス
-const MANAGER_PATHS = ['/dashboard']
-// スタッフ専用パス
+const PUBLIC_PATHS = ['/login', '/signup']
 const STAFF_PATHS = ['/staff/myshift', '/staff/request']
 
 export default auth((req: NextRequest & { auth: { user?: { role?: string } } | null }) => {
   const { pathname } = req.nextUrl
-  const role = req.auth?.user?.role ?? null
 
+  // 公開ページはスキップ
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next()
+  }
+
+  // 未ログイン → ログインページへ
   if (!req.auth) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
+  const role = req.auth?.user?.role ?? null
   const isStaff = role === 'STAFF'
-  const isManager = role === 'OWNER' || role === 'MANAGER'
+  const isAdmin = role === 'ADMIN'
 
   // STAFFが管理者ページにアクセス → マイシフトへ
-  if (isStaff && MANAGER_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isStaff && pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/staff/myshift', req.url))
   }
 
-  // OWNER/MANAGERがスタッフ専用ページにアクセス → ダッシュボードへ
-  if (isManager && STAFF_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+  // ADMINがスタッフ専用ページにアクセス → シフト管理へ
+  if (isAdmin && STAFF_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.redirect(new URL('/dashboard/shift-periods', req.url))
   }
 
   return NextResponse.next()

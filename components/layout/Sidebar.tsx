@@ -7,11 +7,9 @@ import { signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import {
   CalendarDays,
-  LayoutDashboard,
   Users,
   ClipboardList,
   Settings,
-  HelpCircle,
   LogOut,
 } from 'lucide-react'
 
@@ -21,21 +19,19 @@ interface NavItem {
   icon: React.ElementType
 }
 
-const managerNav: NavItem[] = [
-  { label: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'シフト表', href: '/dashboard/schedule', icon: CalendarDays },
-  { label: 'シフト希望', href: '/dashboard/requests', icon: ClipboardList },
-  { label: 'スタッフ管理', href: '/dashboard/staff', icon: Users },
+const adminNav: NavItem[] = [
+  { label: 'シフト管理', href: '/dashboard/shift-periods', icon: CalendarDays },
+  { label: '従業員管理', href: '/dashboard/employees', icon: Users },
+  { label: '申請管理', href: '/dashboard/requests', icon: ClipboardList },
 ]
 
 const staffNav: NavItem[] = [
   { label: 'マイシフト', href: '/staff/myshift', icon: CalendarDays },
-  { label: '希望提出', href: '/staff/request', icon: ClipboardList },
+  { label: '休み申請', href: '/staff/request', icon: ClipboardList },
 ]
 
 const bottomItems: NavItem[] = [
-  { label: '設定', href: '/settings/store', icon: Settings },
-  { label: 'ヘルプ', href: '#', icon: HelpCircle },
+  { label: '設定', href: '/dashboard/settings', icon: Settings },
 ]
 
 export function Sidebar() {
@@ -43,7 +39,7 @@ export function Sidebar() {
   const { data: session } = useSession()
   const role = session?.user?.role ?? 'STAFF'
   const isStaff = role === 'STAFF'
-  const navItems = isStaff ? staffNav : managerNav
+  const navItems = isStaff ? staffNav : adminNav
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-11 bg-[#1E2A3B] flex flex-col z-30">
@@ -86,7 +82,7 @@ export function Sidebar() {
         {/* ロールバッジ */}
         <div className="mt-2 w-full flex justify-center">
           <span className="text-[9px] text-white/30 font-medium tracking-wide">
-            {isStaff ? 'STAFF' : role === 'OWNER' ? 'OWNER' : 'MGR'}
+            {isStaff ? 'STAFF' : 'ADMIN'}
           </span>
         </div>
       </nav>
