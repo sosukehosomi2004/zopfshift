@@ -68,10 +68,26 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const dateObj = new Date(date)
 
   if (clear) {
+    // 事前確定を取り消す: PreAssignment削除 + Exclusionを記録 (再自動展開を防止)
     await prisma.preAssignment.deleteMany({
       where: { shiftPeriodId: id, employeeId, date: dateObj },
     })
+    await prisma.preAssignmentExclusion.upsert({
+      where: {
+        shiftPeriodId_employeeId_date: {
+          shiftPeriodId: id,
+          employeeId,
+          date: dateObj,
+        },
+      },
+      update: {},
+      create: { shiftPeriodId: id, employeeId, date: dateObj },
+    })
   } else {
+    // PreAssignment作成 → Exclusionが残っていれば解除
+    await prisma.preAssignmentExclusion.deleteMany({
+      where: { shiftPeriodId: id, employeeId, date: dateObj },
+    })
     await prisma.preAssignment.upsert({
       where: {
         shiftPeriodId_employeeId_date: {

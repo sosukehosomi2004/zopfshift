@@ -17,7 +17,7 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
   const rules = await prisma.employeeRecurringRule.findMany({
     include: { employee: { select: { id: true, primaryWorkplace: true, isActive: true } } },
   })
-  if (rules.length === 0) return 0
+  // ※ ルール0件でも承認済み申請を PreAssignment に展開する処理は走る
 
   // 期間内の祝日を取得
   const holidays = await prisma.holiday.findMany({
@@ -34,18 +34,54 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
     existing.map((p) => `${p.employeeId}|${p.date.toISOString().split('T')[0]}`),
   )
 
-  // 承認済みの申請 — ルールより申請が優先 (承認時にPreAssignmentが作られているはずだが念のため)
-  // PENDING は無視: ルールが適用されたUI表示を維持し、承認されたタイミングで上書きされる
+  // 管理者が「事前確定取消」した日付 — 自動再展開しないようスキップ
+  const exclusions = await prisma.preAssignmentExclusion.findMany({
+    where: { shiftPeriodId },
+    select: { employeeId: true, date: true },
+  })
+  const excludedKeys = new Set(
+    exclusions.map((e) => `${e.employeeId}|${e.date.toISOString().split('T')[0]}`),
+  )
+
+  // 承認済みの申請 — PreAssignment(休み)として upsert (まだ作られていない場合)
+  // ルール展開時にもこれらの日はスキップ (申請優先)
   const dayOffRequests = await prisma.dayOffRequest.findMany({
     where: {
       date: { gte: period.startDate, lte: period.endDate },
       status: 'APPROVED',
     },
-    select: { employeeId: true, date: true },
+    select: { employeeId: true, date: true, type: true, memo: true },
   })
+  for (const r of dayOffRequests) {
+    const key = `${r.employeeId}|${r.date.toISOString().split('T')[0]}`
+    // Exclusion (管理者の取消マーク) があればスキップ
+    if (excludedKeys.has(key)) continue
+    const memoLabel = r.type === 'PAID_LEAVE' ? '有休' : '公休'
+    const memo = r.memo ? `${memoLabel}: ${r.memo}` : memoLabel
+    await prisma.preAssignment.upsert({
+      where: {
+        shiftPeriodId_employeeId_date: {
+          shiftPeriodId,
+          employeeId: r.employeeId,
+          date: r.date,
+        },
+      },
+      update: { workplace: null, memo },
+      create: {
+        shiftPeriodId,
+        employeeId: r.employeeId,
+        date: r.date,
+        workplace: null,
+        memo,
+      },
+    })
+  }
   const requestKeys = new Set(
     dayOffRequests.map((d) => `${d.employeeId}|${d.date.toISOString().split('T')[0]}`),
   )
+
+  // upsertしたPreAssignmentもexistingKeysに反映 (二重作成防止)
+  for (const k of Array.from(requestKeys)) existingKeys.add(k)
 
   // 期間内の全日付を生成
   const dates: Date[] = []
@@ -70,6 +106,8 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
       const dateStr = date.toISOString().split('T')[0]
       const key = `${rule.employeeId}|${dateStr}`
       if (existingKeys.has(key)) continue
+      // 管理者が取消マークしたセルはルール展開しない
+      if (excludedKeys.has(key)) continue
       // 休み申請がある日はスキップ (申請優先)
       if (requestKeys.has(key)) continue
 

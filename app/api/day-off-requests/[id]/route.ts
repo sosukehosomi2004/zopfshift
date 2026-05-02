@@ -84,6 +84,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const memoLabel = updated.type === 'PAID_LEAVE' ? '有休' : '公休'
     const memo = updated.memo ? `${memoLabel}: ${updated.memo}` : memoLabel
     for (const p of periods) {
+      // Exclusion が残っていれば解除 (申請承認は強い意思表示なので優先)
+      await prisma.preAssignmentExclusion.deleteMany({
+        where: {
+          shiftPeriodId: p.id,
+          employeeId: updated.employeeId,
+          date: updated.date,
+        },
+      })
       await prisma.preAssignment.upsert({
         where: {
           shiftPeriodId_employeeId_date: {

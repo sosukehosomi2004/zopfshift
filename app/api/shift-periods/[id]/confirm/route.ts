@@ -44,10 +44,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     },
   })
 
-  // シフト期間を確定
+  // 候補確定 → 手動調整モードへ
   await prisma.shiftPeriod.update({
     where: { id },
-    data: { status: 'CONFIRMED' },
+    data: { status: 'ADJUSTING' },
   })
 
   return NextResponse.json({ success: true })

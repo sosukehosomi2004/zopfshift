@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: '下書き',
   GENERATING: '生成中',
   REVIEW: 'レビュー中',
+  ADJUSTING: '手動調整',
   CONFIRMED: '確定',
 }
 
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
   GENERATING: 'bg-yellow-100 text-yellow-700',
   REVIEW: 'bg-blue-100 text-blue-700',
+  ADJUSTING: 'bg-purple-100 text-purple-700',
   CONFIRMED: 'bg-green-100 text-green-700',
 }
 
@@ -31,8 +33,19 @@ export default function ShiftPeriodsPage() {
   const [periods, setPeriods] = useState<ShiftPeriod[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  // フォームは「○月度」表記。例: fiscalYear=2026, fiscalMonth=6 → 6月度 = 5/21~6/20
+  const initial = (() => {
+    const now = new Date()
+    const day = now.getDate()
+    const m = now.getMonth() + 1
+    const y = now.getFullYear()
+    if (day >= 21) {
+      return m === 12 ? { fy: y + 1, fm: 1 } : { fy: y, fm: m + 1 }
+    }
+    return { fy: y, fm: m }
+  })()
+  const [fiscalYear, setFiscalYear] = useState(initial.fy)
+  const [fiscalMonth, setFiscalMonth] = useState(initial.fm)
 
   const fetchPeriods = async () => {
     setLoading(true)
@@ -44,10 +57,15 @@ export default function ShiftPeriodsPage() {
   useEffect(() => { fetchPeriods() }, [])
 
   const handleCreate = async () => {
+    // fiscalYear/fiscalMonth → API の year/month (期間開始月) に変換
+    // 6月度 (fy=2026, fm=6) → year=2026, month=5 (5/21開始)
+    // 1月度 (fy=2026, fm=1) → year=2025, month=12 (12/21開始)
+    const apiYear = fiscalMonth === 1 ? fiscalYear - 1 : fiscalYear
+    const apiMonth = fiscalMonth === 1 ? 12 : fiscalMonth - 1
     const res = await fetch('/api/shift-periods', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year, month }),
+      body: JSON.stringify({ year: apiYear, month: apiMonth }),
     })
     if (res.ok) {
       setShowCreate(false)
@@ -74,18 +92,21 @@ export default function ShiftPeriodsPage() {
       {showCreate && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 max-w-sm">
           <h3 className="font-semibold text-gray-900 mb-3">シフト期間を作成</h3>
-          <p className="text-xs text-gray-400 mb-3">選択した月の21日〜翌月20日が期間になります</p>
-          <div className="flex gap-2 mb-3">
-            <input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))}
+          <p className="text-xs text-gray-400 mb-3">○月度 = (前月)21日 〜 ○月20日 が対象期間になります</p>
+          <div className="flex gap-2 mb-2">
+            <input type="number" value={fiscalYear} onChange={(e) => setFiscalYear(parseInt(e.target.value))}
               className="w-24 px-3 py-2 border rounded-lg text-sm" />
             <span className="self-center text-sm text-gray-500">年</span>
-            <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}
+            <select value={fiscalMonth} onChange={(e) => setFiscalMonth(parseInt(e.target.value))}
               className="px-3 py-2 border rounded-lg text-sm">
               {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>{i + 1}月</option>
+                <option key={i + 1} value={i + 1}>{i + 1}月度</option>
               ))}
             </select>
           </div>
+          <p className="text-xs text-gray-400 mb-3">
+            → {fiscalMonth === 1 ? `${fiscalYear - 1}/12/21` : `${fiscalYear}/${String(fiscalMonth - 1).padStart(2, '0')}/21`} 〜 {fiscalYear}/{String(fiscalMonth).padStart(2, '0')}/20
+          </p>
           <div className="flex gap-2">
             <button onClick={handleCreate}
               className="px-4 py-2 bg-[#0AB4CC] text-white rounded-lg text-sm hover:bg-[#099bb0]">

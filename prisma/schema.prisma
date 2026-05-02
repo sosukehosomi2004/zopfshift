@@ -275,11 +275,26 @@ model PreAssignment {
   @@unique([shiftPeriodId, employeeId, date])
 }
 
+// 事前確定の取消マーク
+// 管理者が「事前確定を取り消す」を押した時に記録される。
+// expandRecurringRules や 申請承認時の自動 upsert はこのテーブルにある日付をスキップする。
+// 通常のPreAssignment作成 (手動入力 or 申請承認の自動upsert) でこのマークは解除される。
+model PreAssignmentExclusion {
+  id            String   @id @default(cuid())
+  shiftPeriodId String
+  employeeId    String
+  date          DateTime @db.Date
+  createdAt     DateTime @default(now())
+
+  @@unique([shiftPeriodId, employeeId, date])
+}
+
 enum PeriodStatus {
   DRAFT
   GENERATING
   REVIEW
-  CONFIRMED
+  ADJUSTING  // 候補確定後・手動調整中 (編集可)
+  CONFIRMED  // 最終確定 (編集不可)
 }
 
 // 生成されたシフト候補

@@ -59,6 +59,7 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: '下書き',
   GENERATING: '生成中',
   REVIEW: 'レビュー中',
+  ADJUSTING: '手動調整',
   CONFIRMED: '確定',
 }
 
@@ -169,7 +170,7 @@ export default function ShiftPeriodDetailPage() {
       fetchPendingRequests()
       fetchPreAssignments()
       fetchAllEmployees()
-    } else if (period.status === 'REVIEW' || period.status === 'CONFIRMED') {
+    } else if (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') {
       fetchCandidates()
       fetchPreAssignments()
       fetchPendingRequests() // 生成後も申請を表示
@@ -281,9 +282,9 @@ export default function ShiftPeriodDetailPage() {
                 return
               }
 
-              // 確定済みの場合は破棄確認
-              if (period.status === 'CONFIRMED') {
-                if (!confirm('再生成すると現在の確定シフトと手動編集は破棄されます。続けますか？')) return
+              // 手動調整中・確定済みの場合は破棄確認
+              if (period.status === 'ADJUSTING' || period.status === 'CONFIRMED') {
+                if (!confirm('再生成すると現在のシフトと手動編集は破棄されます。続けますか？')) return
               }
 
               // 事前確定の確認（任意なので）
@@ -314,10 +315,29 @@ export default function ShiftPeriodDetailPage() {
             </button>
           )}
 
+          {period.status === 'ADJUSTING' && (
+            <button
+              onClick={async () => {
+                if (!confirm('シフトを確定しますか？\n確定後は手動編集ができなくなります。\n(確定取消で再度編集可能になります)')) return
+                const res = await fetch(`/api/shift-periods/${id}/finalize`, { method: 'POST' })
+                if (res.ok) {
+                  fetchPeriod()
+                } else {
+                  const data = await res.json().catch(() => ({}))
+                  alert(typeof data.error === 'string' ? data.error : 'シフト確定に失敗しました')
+                }
+              }}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+            >
+              <Check className="w-4 h-4" />
+              シフトを確定
+            </button>
+          )}
+
           {period.status === 'CONFIRMED' && (
             <button
               onClick={async () => {
-                if (!confirm('確定を取り消しますか？（手動編集は保持されます）')) return
+                if (!confirm('確定を取り消して手動調整モードに戻しますか？\n(編集内容は保持されます)')) return
                 await fetch(`/api/shift-periods/${id}/unconfirm`, { method: 'POST' })
                 fetchPeriod()
                 fetchCandidates()
@@ -455,15 +475,16 @@ export default function ShiftPeriodDetailPage() {
               holidays={holidays}
               preAssignedKeys={new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
               editable
-              onEdit={async ({ employeeId, date, workplace, memo }) => {
-                if (!workplace && !memo) {
-                  // 全クリア
+              onEdit={async ({ employeeId, date, workplace, memo, clear }) => {
+                if (clear) {
+                  // 事前確定取消 → 削除
                   await fetch(`/api/shift-periods/${id}/pre-assignments`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ employeeId, date, workplace: null, memo: null, clear: true }),
                   })
                 } else {
+                  // 出勤・休みどちらでも upsert (workplace=null は休み確定)
                   await fetch(`/api/shift-periods/${id}/pre-assignments`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -491,8 +512,8 @@ export default function ShiftPeriodDetailPage() {
         </div>
       )}
 
-      {/* 生成後の PENDING 申請通知 (REVIEW / CONFIRMED) */}
-      {(period.status === 'REVIEW' || period.status === 'CONFIRMED') && (() => {
+      {/* 生成後の PENDING 申請通知 (REVIEW / ADJUSTING / CONFIRMED) */}
+      {(period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (() => {
         const pendings = pendingRequests.filter((r) => r.status === 'PENDING')
         if (pendings.length === 0) return null
         return (
@@ -608,7 +629,7 @@ export default function ShiftPeriodDetailPage() {
               staffingRules,
             })
 
-            const hasPending = (period.status === 'REVIEW' || period.status === 'CONFIRMED')
+            const hasPending = (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED')
               && pendingRequests.some((r) => r.status === 'PENDING')
             const stickyTop = hasPending ? 'top-[14rem]' : 'top-4'
 
@@ -731,7 +752,7 @@ export default function ShiftPeriodDetailPage() {
                 holidays={holidays}
                 preAssignedKeys={new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
                 staffingRules={staffingRules}
-                editable={period.status === 'CONFIRMED' && currentCandidate?.isSelected}
+                editable={period.status === 'ADJUSTING' && currentCandidate?.isSelected}
                 onEdit={async ({ employeeId, date, workplace, memo }) => {
                   await fetch(`/api/shift-periods/${id}/assignments`, {
                     method: 'PATCH',

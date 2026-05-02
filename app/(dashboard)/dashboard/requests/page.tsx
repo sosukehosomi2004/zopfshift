@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
-import { ja } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { format } from 'date-fns'
+import { ChevronLeft, ChevronRight, Check, X, RotateCcw } from 'lucide-react'
 import { RequestWindowManager } from '@/components/requests/RequestWindowManager'
+import { getPeriodRange, getFiscalMonthFromDate } from '@/lib/period-month'
 
 type DayOffRequest = {
   id: string
@@ -34,36 +34,55 @@ const WORKPLACE_LABELS: Record<string, string> = {
 type FilterStatus = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export default function RequestsPage() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  // 「○月度」 (シフト期間) ベースで管理
+  const initial = getFiscalMonthFromDate(new Date())
+  const [fiscalYear, setFiscalYear] = useState(initial.fiscalYear)
+  const [month, setMonth] = useState(initial.month)
   const [requests, setRequests] = useState<DayOffRequest[]>([])
   const [filter, setFilter] = useState<FilterStatus>('ALL')
   const [loading, setLoading] = useState(true)
 
+  const navigateMonth = (delta: number) => {
+    let newMonth = month + delta
+    let newYear = fiscalYear
+    while (newMonth > 12) { newMonth -= 12; newYear++ }
+    while (newMonth < 1) { newMonth += 12; newYear-- }
+    setFiscalYear(newYear)
+    setMonth(newMonth)
+  }
+
+  const range = getPeriodRange(fiscalYear, month)
+
   const fetchRequests = useCallback(async () => {
     setLoading(true)
-    const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
+    const start = format(range.start, 'yyyy-MM-dd')
+    const end = format(range.end, 'yyyy-MM-dd')
     const params = new URLSearchParams({ startDate: start, endDate: end })
     const res = await fetch(`/api/day-off-requests?${params}`)
     if (res.ok) setRequests(await res.json())
     setLoading(false)
-  }, [currentMonth])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fiscalYear, month])
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
 
   const filtered = filter === 'ALL' ? requests : requests.filter((r) => r.status === filter)
 
-  const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED', requestDate?: string) => {
+  const handleAction = async (
+    id: string,
+    status: 'PENDING' | 'APPROVED' | 'REJECTED',
+    currentStatus?: 'PENDING' | 'APPROVED' | 'REJECTED',
+    requestDate?: string,
+  ) => {
     // 承認時: 該当日のシフト期間が既に生成されているなら警告
     if (status === 'APPROVED' && requestDate) {
       const dateStr = requestDate.split('T')[0]
-      // 該当期間 (REVIEW or CONFIRMED) を検索して、既存シフトがあれば警告
       const periodsRes = await fetch('/api/shift-periods')
       if (periodsRes.ok) {
         const periods: { id: string; startDate: string; endDate: string; status: string; _count: { candidates: number } }[] = await periodsRes.json()
         const matchingPeriod = periods.find(
           (p) =>
-            (p.status === 'REVIEW' || p.status === 'CONFIRMED') &&
+            (p.status === 'REVIEW' || p.status === 'ADJUSTING' || p.status === 'CONFIRMED') &&
             p._count.candidates > 0 &&
             dateStr >= p.startDate.split('T')[0] &&
             dateStr <= p.endDate.split('T')[0],
@@ -80,21 +99,31 @@ export default function RequestsPage() {
         }
       }
     }
+
+    // 承認済みを取り消す場合の確認 (副作用注意)
+    if (currentStatus === 'APPROVED' && status !== 'APPROVED') {
+      const ok = confirm(
+        `承認済みの申請を${status === 'REJECTED' ? '却下' : 'PENDINGに戻し'}ます。\n\n` +
+          `承認時に作られた事前確定セルは取り消されます。\nよろしいですか？`,
+      )
+      if (!ok) return
+    }
+
     const res = await fetch(`/api/day-off-requests/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
-    if (res.ok && status === 'APPROVED') {
+    if (res.ok) {
       const data = await res.json()
       const a = data.updatedAssignments ?? 0
       const p = data.updatedPreAssignments ?? 0
-      if (a > 0 || p > 0) {
-        const parts: string[] = []
-        if (a > 0) parts.push(`シフト割当 ${a}件を休みに更新`)
-        if (p > 0) parts.push(`事前確定セル ${p}件を休みに更新`)
-        alert(`承認しました\n${parts.join('\n')}`)
-      }
+      const rev = data.revertedPreAssignments ?? 0
+      const parts: string[] = []
+      if (a > 0) parts.push(`シフト割当 ${a}件を休みに更新`)
+      if (p > 0) parts.push(`事前確定 ${p}件を休みに更新`)
+      if (rev > 0) parts.push(`事前確定 ${rev}件を取り消し`)
+      if (parts.length > 0) alert(parts.join('\n'))
     }
     fetchRequests()
   }
@@ -115,15 +144,18 @@ export default function RequestsPage() {
       {/* 申請受付ウィンドウ管理 */}
       <RequestWindowManager />
 
-      {/* 月ナビ */}
-      <div className="flex items-center gap-4 mb-4">
-        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 hover:bg-gray-100 rounded">
+      {/* 月度ナビ (シフト期間ベース) */}
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => navigateMonth(-1)} className="p-1 hover:bg-gray-100 rounded">
           <ChevronLeft className="w-5 h-5 text-gray-500" />
         </button>
         <span className="font-semibold text-gray-900">
-          {format(currentMonth, 'yyyy年 M月', { locale: ja })}
+          {fiscalYear}年{month}月度
         </span>
-        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 hover:bg-gray-100 rounded">
+        <span className="text-xs text-gray-400">
+          ({format(range.start, 'yyyy/MM/dd')} 〜 {format(range.end, 'yyyy/MM/dd')})
+        </span>
+        <button onClick={() => navigateMonth(1)} className="p-1 hover:bg-gray-100 rounded">
           <ChevronRight className="w-5 h-5 text-gray-500" />
         </button>
       </div>
@@ -187,22 +219,32 @@ export default function RequestsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{r.memo || '-'}</td>
                   <td className="px-4 py-3 text-right">
-                    {r.status === 'PENDING' && (
-                      <div className="flex gap-1 justify-end">
+                    <div className="flex gap-1 justify-end">
+                      {r.status !== 'APPROVED' && (
                         <button
-                          onClick={() => handleAction(r.id, 'APPROVED', r.date)}
+                          onClick={() => handleAction(r.id, 'APPROVED', r.status, r.date)}
                           className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-600"
                         >
                           <Check className="w-3 h-3" /> 承認
                         </button>
+                      )}
+                      {r.status !== 'REJECTED' && (
                         <button
-                          onClick={() => handleAction(r.id, 'REJECTED')}
+                          onClick={() => handleAction(r.id, 'REJECTED', r.status)}
                           className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600"
                         >
                           <X className="w-3 h-3" /> 却下
                         </button>
-                      </div>
-                    )}
+                      )}
+                      {r.status !== 'PENDING' && (
+                        <button
+                          onClick={() => handleAction(r.id, 'PENDING', r.status)}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                        >
+                          <RotateCcw className="w-3 h-3" /> 未処理に戻す
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

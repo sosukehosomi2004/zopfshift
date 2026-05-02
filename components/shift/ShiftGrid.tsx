@@ -38,7 +38,7 @@ type Props = {
   preAssignedKeys?: Set<string> // `${empId}-${date}` の事前確定セル
   editable?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
-  onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null }) => void | Promise<void>
+  onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null; clear?: boolean }) => void | Promise<void>
 }
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
@@ -180,11 +180,15 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     setEditingCell({ employeeId, date, primaryWorkplace })
   }
 
-  const handleEdit = async (workplace: string | null, memo: string | null) => {
+  const handleEdit = async (workplace: string | null, memo: string | null, clear?: boolean) => {
     if (!editingCell || !onEdit) return
-    await onEdit({ employeeId: editingCell.employeeId, date: editingCell.date, workplace, memo })
+    await onEdit({ employeeId: editingCell.employeeId, date: editingCell.date, workplace, memo, clear })
     setEditingCell(null)
   }
+
+  const editingIsPreAssigned = editingCell
+    ? preAssignedKeys?.has(`${editingCell.employeeId}-${editingCell.date}`) ?? false
+    : false
 
   const editingAssignment = editingCell
     ? assignmentMap.get(`${editingCell.employeeId}-${editingCell.date}`)
@@ -232,6 +236,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
           currentWorkplace={editingAssignment?.workplace ?? null}
           currentMemo={editingAssignment?.memo ?? null}
           primaryWorkplace={editingCell.primaryWorkplace}
+          isPreAssigned={editingIsPreAssigned}
           onSave={handleEdit}
           onClose={() => setEditingCell(null)}
         />
@@ -493,17 +498,24 @@ type CellEditorProps = {
   currentWorkplace: string | null
   currentMemo: string | null
   primaryWorkplace: string
-  onSave: (workplace: string | null, memo: string | null) => void | Promise<void>
+  isPreAssigned?: boolean
+  onSave: (workplace: string | null, memo: string | null, clear?: boolean) => void | Promise<void>
   onClose: () => void
 }
 
-function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, onSave, onClose }: CellEditorProps) {
+function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, isPreAssigned, onSave, onClose }: CellEditorProps) {
   const [memo, setMemo] = useState(currentMemo ?? '')
   const [saving, setSaving] = useState(false)
 
   const handleClick = async (workplace: string | null) => {
     setSaving(true)
     await onSave(workplace, memo || null)
+    setSaving(false)
+  }
+
+  const handleClear = async () => {
+    setSaving(true)
+    await onSave(null, null, true)
     setSaving(false)
   }
 
@@ -570,6 +582,19 @@ function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, onS
             {saving ? '保存中...' : 'メモのみ保存'}
           </button>
         </div>
+
+        {isPreAssigned && (
+          <div className="mt-3 pt-3 border-t">
+            <button
+              disabled={saving}
+              onClick={handleClear}
+              className="w-full py-2 rounded-lg text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              事前確定を取り消す
+            </button>
+            <p className="text-xs text-gray-400 mt-1 text-center">この日は通常通り自動生成の対象になります</p>
+          </div>
+        )}
       </div>
     </div>
   )

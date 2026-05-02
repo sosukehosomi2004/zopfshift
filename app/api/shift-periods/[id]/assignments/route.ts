@@ -41,8 +41,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   })
 
-  if (!period || period.status !== 'CONFIRMED') {
-    return NextResponse.json({ error: 'シフトが確定されていません' }, { status: 400 })
+  if (!period || period.status !== 'ADJUSTING') {
+    return NextResponse.json(
+      { error: '手動調整中のシフトのみ編集可能です (確定済みは確定取消が必要)' },
+      { status: 400 },
+    )
   }
 
   const candidate = period.candidates[0]
