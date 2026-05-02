@@ -1,4 +1,4 @@
-import { DateInfo, DayOffInput, EmployeeInput, StaffingRuleInput, SlotInput } from './types'
+import { DateInfo, DayOffInput, EmployeeInput, StaffingRuleInput, SlotInput, PreAssignmentInput } from './types'
 import { shuffle } from './utils'
 import { KOMATSU_LINE_LASTNAMES, KOMATSU_LINE_MIN_WORKING } from './constraints'
 
@@ -27,6 +27,7 @@ export function allocateHolidays(
   maxConsecutive: number,
   slots?: SlotInput[],
   allowUnderstaffing = false,
+  preAssignments?: PreAssignmentInput[],
 ): Map<string, Set<string>> {
   const totalDays = dateInfos.length
   const empCount = employees.length
@@ -87,32 +88,68 @@ export function allocateHolidays(
     }
   }
 
+  // 事前確定セル: ロックセットを作る（休み確定と出勤確定の両方）
+  const lockedRestCells = new Set<string>() // `${empIdx}-${dayIdx}` 休み確定
+  const lockedWorkCells = new Set<string>() // `${empIdx}-${dayIdx}` 出勤確定
+  if (preAssignments) {
+    for (const pa of preAssignments) {
+      const empIdx = empIdToIdx.get(pa.employeeId)
+      if (empIdx === undefined) continue
+      const dayIdx = dateInfos.findIndex((di) => di.date === pa.date)
+      if (dayIdx === -1) continue
+      const key = `${empIdx}-${dayIdx}`
+      if (pa.workplace === null) {
+        // 休み確定
+        schedule[empIdx][dayIdx] = false
+        lockedRestCells.add(key)
+        remainingHolidays[empIdx]--
+      } else {
+        // 出勤確定
+        schedule[empIdx][dayIdx] = true
+        lockedWorkCells.add(key)
+      }
+    }
+  }
+
   // 小松ラインの最大休み数 = 5 - 3 = 2人まで
   const KOMATSU_MAX_REST = KOMATSU_LINE_LASTNAMES.length - KOMATSU_LINE_MIN_WORKING
   const isFactoryWorkplace = employees[0]?.primaryWorkplace === 'FACTORY'
 
   // 日ごとに休む人を決める
   for (let dayIdx = 0; dayIdx < totalDays; dayIdx++) {
-    const needed = restPerDay[dayIdx]
+    // ============================================================
+    // STEP 1: 5連勤達成者を強制休み (HARD制約優先, restPerDayを超過してもOK)
+    // ============================================================
+    for (let i = 0; i < empCount; i++) {
+      if (
+        consecutiveWork[i] >= maxConsecutive &&
+        schedule[i][dayIdx] &&
+        !lockedWorkCells.has(`${i}-${dayIdx}`)
+      ) {
+        schedule[i][dayIdx] = false
+        remainingHolidays[i]--
+      }
+    }
 
-    // この日に既に休みが確定している人
+    // この日に休みになっている人 (lockedRest + forced rest 含む)
     const alreadyResting: number[] = []
     for (let i = 0; i < empCount; i++) {
       if (!schedule[i][dayIdx]) alreadyResting.push(i)
     }
 
+    const needed = restPerDay[dayIdx]
     const additionalNeeded = needed - alreadyResting.length
     if (additionalNeeded <= 0) {
-      // 既に十分（申請で埋まった）→ 連続カウンター更新
+      // 既に十分 → 連続カウンター更新
       updateConsecutive(schedule, dayIdx, empCount, consecutiveWork, paidLeaveSet, consecutiveRest)
       updateRemainingDays(remainingDays, dayIdx, totalDays)
       continue
     }
 
-    // 候補: 出勤中の全従業員
+    // 候補: 出勤中の全従業員（出勤確定セルは候補から除外）
     const workingEmps = []
     for (let i = 0; i < empCount; i++) {
-      if (schedule[i][dayIdx]) workingEmps.push(i)
+      if (schedule[i][dayIdx] && !lockedWorkCells.has(`${i}-${dayIdx}`)) workingEmps.push(i)
     }
 
     // この日に既に休んでいる小松ラインの人数（動的に更新）
@@ -169,16 +206,7 @@ export function allocateHolidays(
     // 上位から休ませる、ただしスキル制約をチェック
     const toRest: number[] = [...alreadyResting]
 
-    // まず5連勤達成者は強制的に休ませる（needed超過してもOK、5連勤違反防止優先）
-    for (const { empIdx } of scored) {
-      if (consecutiveWork[empIdx] >= maxConsecutive) {
-        schedule[empIdx][dayIdx] = false
-        toRest.push(empIdx)
-        remainingHolidays[empIdx]--
-      }
-    }
-
-    // 残りの枠を埋める
+    // 残りの枠を埋める (5連勤強制休みは上の STEP 1 で処理済)
     const remainingSlots = needed - (toRest.length - alreadyResting.length)
 
     // 候補をシャッフル（同スコア帯でランダム性を入れる）

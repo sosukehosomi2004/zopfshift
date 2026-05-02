@@ -10,6 +10,36 @@ const bulkSchema = z.object({
   })),
 })
 
+// POST /api/holidays/sync - 公開APIから日本の祝日を取得して保存
+export async function POST() {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // holidays-jp の公開API
+  const res = await fetch('https://holidays-jp.github.io/api/v1/date.json', {
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    return NextResponse.json({ error: '祝日データの取得に失敗しました' }, { status: 502 })
+  }
+
+  const data: Record<string, string> = await res.json()
+  let count = 0
+  for (const [dateStr, name] of Object.entries(data)) {
+    const date = new Date(dateStr)
+    await prisma.holiday.upsert({
+      where: { date },
+      update: { name },
+      create: { date, name },
+    })
+    count++
+  }
+
+  return NextResponse.json({ success: true, count })
+}
+
 // GET /api/holidays?year=2026
 export async function GET(req: NextRequest) {
   const session = await auth()

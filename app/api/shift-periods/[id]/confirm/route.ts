@@ -31,13 +31,17 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   // 選択した候補をマーク
-  await prisma.shiftCandidate.updateMany({
-    where: { shiftPeriodId: id },
-    data: { isSelected: false },
-  })
   await prisma.shiftCandidate.update({
     where: { id: candidateId },
     data: { isSelected: true },
+  })
+
+  // 選ばれなかった候補は削除（assignmentsもCascadeで消える）
+  await prisma.shiftCandidate.deleteMany({
+    where: {
+      shiftPeriodId: id,
+      id: { not: candidateId },
+    },
   })
 
   // シフト期間を確定

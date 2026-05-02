@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { authConfig } from '@/lib/auth.config'
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  employeeNumber: z.coerce.number().int().positive(),
   password: z.string().min(6),
 })
 
@@ -18,9 +18,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const { email, password } = parsed.data
+        const { employeeNumber, password } = parsed.data
 
-        const employee = await prisma.employee.findUnique({ where: { email } })
+        const employee = await prisma.employee.findUnique({ where: { employeeNumber } })
         if (!employee || !employee.isActive) return null
 
         const isValid = await bcrypt.compare(password, employee.password)
@@ -28,9 +28,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         return {
           id: employee.id,
-          email: employee.email,
           name: `${employee.lastName} ${employee.firstName}`,
           role: employee.role as string,
+          mustChangePassword: employee.mustChangePassword,
         }
       },
     }),

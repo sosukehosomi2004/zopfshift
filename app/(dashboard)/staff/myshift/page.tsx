@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { ChevronLeft, ChevronRight, User } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
@@ -16,6 +17,8 @@ const WORKPLACE_LABELS: Record<string, string> = {
 }
 
 export default function MyShiftPage() {
+  const { data: session } = useSession()
+  const userName = session?.user?.name
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [assignments, setAssignments] = useState<Assignment[]>([])
 
@@ -48,6 +51,12 @@ export default function MyShiftPage() {
   return (
     <div className="max-w-xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">マイシフト</h1>
+      {userName && (
+        <div className="flex items-center gap-1.5 text-sm text-gray-600 mb-1">
+          <User className="w-4 h-4 text-gray-400" />
+          <span>{userName} さん</span>
+        </div>
+      )}
       <p className="text-sm text-gray-400 mb-6">
         出勤 {workDays}日 / 休み {offDays}日
       </p>

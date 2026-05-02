@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { RequestWindowManager } from '@/components/requests/RequestWindowManager'
 
 type DayOffRequest = {
   id: string
@@ -52,20 +53,57 @@ export default function RequestsPage() {
 
   const filtered = filter === 'ALL' ? requests : requests.filter((r) => r.status === filter)
 
-  const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
-    await fetch(`/api/day-off-requests/${id}`, {
+  const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED', requestDate?: string) => {
+    // 承認時: 該当日のシフト期間が既に生成されているなら警告
+    if (status === 'APPROVED' && requestDate) {
+      const dateStr = requestDate.split('T')[0]
+      // 該当期間 (REVIEW or CONFIRMED) を検索して、既存シフトがあれば警告
+      const periodsRes = await fetch('/api/shift-periods')
+      if (periodsRes.ok) {
+        const periods: { id: string; startDate: string; endDate: string; status: string; _count: { candidates: number } }[] = await periodsRes.json()
+        const matchingPeriod = periods.find(
+          (p) =>
+            (p.status === 'REVIEW' || p.status === 'CONFIRMED') &&
+            p._count.candidates > 0 &&
+            dateStr >= p.startDate.split('T')[0] &&
+            dateStr <= p.endDate.split('T')[0],
+        )
+        if (matchingPeriod) {
+          const ok = confirm(
+            `この申請の対象日 (${dateStr}) は、既にシフト生成済みの期間に含まれます。\n\n` +
+              `承認すると：\n` +
+              `・該当従業員のその日の勤務は「休み」に自動変更されます\n` +
+              `・人数不足が発生するため、シフト期間ページで代わりの人を手動配置してください\n\n` +
+              `承認しますか？`,
+          )
+          if (!ok) return
+        }
+      }
+    }
+    const res = await fetch(`/api/day-off-requests/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
+    if (res.ok && status === 'APPROVED') {
+      const data = await res.json()
+      const a = data.updatedAssignments ?? 0
+      const p = data.updatedPreAssignments ?? 0
+      if (a > 0 || p > 0) {
+        const parts: string[] = []
+        if (a > 0) parts.push(`シフト割当 ${a}件を休みに更新`)
+        if (p > 0) parts.push(`事前確定セル ${p}件を休みに更新`)
+        alert(`承認しました\n${parts.join('\n')}`)
+      }
+    }
     fetchRequests()
   }
 
   const pendingCount = requests.filter((r) => r.status === 'PENDING').length
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">申請管理</h1>
           {pendingCount > 0 && (
@@ -73,6 +111,9 @@ export default function RequestsPage() {
           )}
         </div>
       </div>
+
+      {/* 申請受付ウィンドウ管理 */}
+      <RequestWindowManager />
 
       {/* 月ナビ */}
       <div className="flex items-center gap-4 mb-4">
@@ -149,7 +190,7 @@ export default function RequestsPage() {
                     {r.status === 'PENDING' && (
                       <div className="flex gap-1 justify-end">
                         <button
-                          onClick={() => handleAction(r.id, 'APPROVED')}
+                          onClick={() => handleAction(r.id, 'APPROVED', r.date)}
                           className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-green-50 hover:bg-green-100 text-green-600"
                         >
                           <Check className="w-3 h-3" /> 承認

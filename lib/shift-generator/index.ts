@@ -2,11 +2,12 @@ import { GeneratorInput, GeneratorOutput, CandidateOutput } from './types'
 import { buildDateInfos } from './utils'
 import { allocateHolidays } from './holiday-allocator'
 import { assignSlots } from './slot-assigner'
-import { checkConsecutiveWorkDays, checkStaffingCounts, checkSlotCoverage, checkCafeProficiency, checkFloorProficiency, checkKomatsuLine } from './constraints'
+import { checkConsecutiveWorkDays, checkHolidayCount, checkStaffingCounts, checkSlotCoverage, checkCafeProficiency, checkFloorProficiency, checkKomatsuLine } from './constraints'
 import { scoreConsecutiveOffDays } from './scorer'
 
 const MAX_CONSECUTIVE = 5
-const MAX_ATTEMPTS = 2000 // 最大試行回数
+const DEFAULT_MAX_ATTEMPTS = 1500
+const DEFAULT_TARGET_VALID = 300
 
 /**
  * シフト生成エンジン
@@ -25,31 +26,53 @@ export function generateShiftCandidates(input: GeneratorInput): GeneratorOutput 
     return { candidates: [], errors: ['シフト期間が不正です'] }
   }
 
-  const candidates: CandidateOutput[] = []
+  const allValidCandidates: CandidateOutput[] = []
   let attempts = 0
+  const t0 = Date.now()
+  const targetValid = input.targetValid ?? DEFAULT_TARGET_VALID
+  const maxAttempts = input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
 
-  while (candidates.length < input.candidateCount && attempts < MAX_ATTEMPTS) {
+  // HARD違反0件の候補を最大 targetValid 件まで集める
+  while (allValidCandidates.length < targetValid && attempts < maxAttempts) {
     attempts++
-    const candidate = generateOneCandidate(candidates.length + 1, input, dateInfos)
-    if (candidate.violations.length === 0) {
-      candidate.candidateIndex = candidates.length + 1
-      candidates.push(candidate)
+    const candidate = generateOneCandidate(allValidCandidates.length + 1, input, dateInfos)
+    if (candidate.hardViolations.length === 0) {
+      allValidCandidates.push(candidate)
     }
   }
 
-  if (candidates.length < input.candidateCount) {
-    errors.push(`${attempts}回試行して${candidates.length}候補のみ生成（目標${input.candidateCount}）`)
+  const elapsedMs = Date.now() - t0
+  console.log(
+    `[generator] valid=${allValidCandidates.length} / attempts=${attempts} (rejection=${(((attempts - allValidCandidates.length) / attempts) * 100).toFixed(1)}%) elapsed=${elapsedMs}ms`,
+  )
+
+  if (allValidCandidates.length === 0) {
+    errors.push(`${attempts}回試行: HARD違反のない候補が見つかりませんでした`)
+  } else if (allValidCandidates.length < input.candidateCount) {
+    errors.push(`${attempts}回試行して${allValidCandidates.length}候補のみ生成（目標${input.candidateCount}）`)
   }
 
-  // スコアリング: 2連休の多さで順位付け
-  for (const c of candidates) {
+  // SOFT違反数 (少ない順) → 2連休スコア (多い順) でソート
+  for (const c of allValidCandidates) {
     c.score = scoreConsecutiveOffDays(c, input.employees, dateInfos)
   }
+  allValidCandidates.sort((a, b) => {
+    const violationDiff = a.violations.length - b.violations.length
+    if (violationDiff !== 0) return violationDiff
+    return (b.score ?? 0) - (a.score ?? 0)
+  })
 
-  // スコア降順でソート
-  candidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  // SOFT違反の分布をログ出力 (実験用)
+  if (allValidCandidates.length > 0) {
+    const softCounts = allValidCandidates.map((c) => c.violations.length)
+    const min = softCounts[0]
+    const max = softCounts[softCounts.length - 1]
+    const median = softCounts[Math.floor(softCounts.length / 2)]
+    console.log(`[generator] SOFT violations: min=${min} median=${median} max=${max}`)
+  }
 
-  // candidateIndexを振り直す
+  // 上位 candidateCount 件のみ返す
+  const candidates = allValidCandidates.slice(0, input.candidateCount)
   candidates.forEach((c, i) => { c.candidateIndex = i + 1 })
 
   return { candidates, errors }
@@ -61,44 +84,46 @@ function generateOneCandidate(
   dateInfos: ReturnType<typeof buildDateInfos>,
 ): CandidateOutput {
   const { employees, skills, slots, staffingRules, dayOffs, holidayCount } = input
-  const violations: string[] = []
+  const violations: string[] = []      // SOFT
+  const hardViolations: string[] = []  // HARD
 
   const workDaysMap = allocateHolidays(
     employees, dateInfos, dayOffs, staffingRules,
-    holidayCount, MAX_CONSECUTIVE, slots, input.allowUnderstaffing,
+    holidayCount, MAX_CONSECUTIVE, slots, input.allowUnderstaffing, input.preAssignments,
   )
 
   const { assignments, errors: slotErrors } = assignSlots(
     dateInfos, workDaysMap, employees, slots,
   )
-  if (!input.allowUnderstaffing) {
-    violations.push(...slotErrors)
-  }
+  // ポジション未充足はSOFT
+  violations.push(...slotErrors)
 
+  // 連続勤務 + 公休数 はHARD
   for (const emp of employees) {
     const workDays = workDaysMap.get(emp.id) ?? new Set()
-    violations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE))
+    hardViolations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE))
+    hardViolations.push(...checkHolidayCount(emp.id, dateInfos, workDays, dayOffs, holidayCount))
   }
 
   const workplace = employees[0]?.primaryWorkplace
   for (const di of dateInfos) {
-    if (!input.allowUnderstaffing) {
-      violations.push(...checkStaffingCounts(di.date, di.dayType, assignments, employees, staffingRules))
-      violations.push(...checkSlotCoverage(di.date, di.dayType, assignments, employees, slots))
+    // 定数不足はSOFT
+    violations.push(...checkStaffingCounts(di.date, di.dayType, assignments, employees, staffingRules))
+    // ポジションスロット未充足はSOFT
+    violations.push(...checkSlotCoverage(di.date, di.dayType, assignments, employees, slots))
 
-      if (workplace === 'CAFE') {
-        violations.push(...checkCafeProficiency(di.date, assignments, employees, skills))
-      }
-      if (workplace === 'FLOOR') {
-        violations.push(...checkFloorProficiency(di.date, assignments, employees))
-      }
+    // 習熟度はHARD
+    if (workplace === 'CAFE') {
+      hardViolations.push(...checkCafeProficiency(di.date, assignments, employees, skills))
     }
-
-    // 工場の小松ラインチェック（必須）
+    if (workplace === 'FLOOR') {
+      hardViolations.push(...checkFloorProficiency(di.date, assignments, employees))
+    }
+    // 小松ラインはHARD
     if (workplace === 'FACTORY') {
-      violations.push(...checkKomatsuLine(di.date, assignments, employees))
+      hardViolations.push(...checkKomatsuLine(di.date, assignments, employees))
     }
   }
 
-  return { candidateIndex, assignments, violations }
+  return { candidateIndex, assignments, violations, hardViolations }
 }

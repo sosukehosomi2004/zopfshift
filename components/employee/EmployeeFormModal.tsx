@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, KeyRound } from 'lucide-react'
 
 type Employee = {
   id: string
@@ -9,9 +9,9 @@ type Employee = {
   firstName: string
   lastNameRomaji: string
   firstNameRomaji: string
-  email: string
   employmentType: string
   primaryWorkplace: string
+  role?: string
   secondaryWorkplaces: { workplace: string }[]
   availableShiftTimes: { timeSlot: string }[]
 }
@@ -20,6 +20,9 @@ type Props = {
   employee: Employee | null
   onClose: () => void
   onSaved: () => void
+  onResetPassword?: () => void
+  onCreated?: (initialPassword: string, employee: { lastName: string; firstName: string; employeeNumber: number }) => void
+  currentUserId?: string
 }
 
 const WORKPLACES = ['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'] as const
@@ -37,15 +40,14 @@ const SHIFT_TIME_LABELS: Record<string, string> = {
   CLOSE: 'クローズ',
 }
 
-export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
+export function EmployeeFormModal({ employee, onClose, onSaved, onResetPassword, onCreated, currentUserId }: Props) {
   const isEdit = !!employee
 
   const [lastName, setLastName] = useState(employee?.lastName ?? '')
   const [firstName, setFirstName] = useState(employee?.firstName ?? '')
   const [lastNameRomaji, setLastNameRomaji] = useState(employee?.lastNameRomaji ?? '')
   const [firstNameRomaji, setFirstNameRomaji] = useState(employee?.firstNameRomaji ?? '')
-  const [email, setEmail] = useState(employee?.email ?? '')
-  const [password, setPassword] = useState('')
+  const [role, setRole] = useState<'ADMIN' | 'STAFF'>((employee?.role as 'ADMIN' | 'STAFF') ?? 'STAFF')
   const [employmentType, setEmploymentType] = useState(employee?.employmentType ?? 'FULL_TIME')
   const [primaryWorkplace, setPrimaryWorkplace] = useState(employee?.primaryWorkplace ?? 'FACTORY')
   const [secondaryWorkplaces, setSecondaryWorkplaces] = useState<string[]>(
@@ -81,13 +83,9 @@ export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
       firstNameRomaji,
       employmentType,
       primaryWorkplace,
+      role,
       secondaryWorkplaces: secondaryWorkplaces.filter((w) => w !== primaryWorkplace),
       availableShiftTimes: employmentType === 'PART_TIME' ? availableShiftTimes : undefined,
-    }
-
-    if (!isEdit) {
-      body.email = email
-      body.password = password
     }
 
     const url = isEdit ? `/api/employees/${employee.id}` : '/api/employees'
@@ -106,7 +104,15 @@ export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
       return
     }
 
+    const created = await res.json().catch(() => null)
     onSaved()
+    if (!isEdit && created?.initialPassword && onCreated) {
+      onCreated(created.initialPassword, {
+        lastName: created.lastName,
+        firstName: created.firstName,
+        employeeNumber: created.employeeNumber,
+      })
+    }
     onClose()
   }
 
@@ -153,20 +159,11 @@ export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          {/* 認証情報（新規のみ） */}
           {!isEdit && (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">メールアドレス</label>
-                <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0AB4CC]/20" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">パスワード</label>
-                <input required type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0AB4CC]/20" />
-              </div>
-            </>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+              <p>登録後、社員番号と初期パスワードが自動発行されます。</p>
+              <p className="mt-1 text-blue-700">従業員が初回ログインするとパスワード変更を求められます。</p>
+            </div>
           )}
 
           {/* 雇用形態 */}
@@ -183,6 +180,30 @@ export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* 権限 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">権限</label>
+            <div className="flex gap-3">
+              {(['STAFF', 'ADMIN'] as const).map((r) => {
+                const isSelf = !!(currentUserId && employee && currentUserId === employee.id)
+                const disabled = isSelf && r === 'STAFF' && role === 'ADMIN'
+                return (
+                  <label key={r} className={`flex items-center gap-2 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                    <input type="radio" name="role" value={r}
+                      checked={role === r}
+                      onChange={() => setRole(r)}
+                      disabled={disabled}
+                      className="accent-[#0AB4CC]" />
+                    <span className="text-sm">{r === 'ADMIN' ? '管理者 (シフト管理可)' : 'スタッフ'}</span>
+                  </label>
+                )
+              })}
+            </div>
+            {currentUserId && employee && currentUserId === employee.id && role === 'ADMIN' && (
+              <p className="text-xs text-amber-600 mt-1">⚠ 自分自身の管理者権限は外せません (ロックアウト防止)</p>
+            )}
           </div>
 
           {/* 基本勤務場所 */}
@@ -232,6 +253,21 @@ export function EmployeeFormModal({ employee, onClose, onSaved }: Props) {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 編集時のみ: パスワードリセット */}
+          {isEdit && onResetPassword && (
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                onClick={onResetPassword}
+                className="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-800 hover:underline"
+              >
+                <KeyRound className="w-4 h-4" />
+                パスワードをリセットする
+              </button>
+              <p className="text-xs text-gray-400 mt-1">従業員がパスワードを忘れた場合に使用します</p>
             </div>
           )}
 

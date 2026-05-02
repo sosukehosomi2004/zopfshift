@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { expandRecurringRules } from '@/lib/expand-recurring-rules'
 
 const createSchema = z.object({
   year: z.number().int(),
@@ -62,5 +63,8 @@ export async function POST(req: NextRequest) {
     data: { startDate, endDate, label },
   })
 
-  return NextResponse.json(period, { status: 201 })
+  // 通年ルールを PreAssignment に展開
+  const expandedCount = await expandRecurringRules(period.id)
+
+  return NextResponse.json({ ...period, expandedCount }, { status: 201 })
 }

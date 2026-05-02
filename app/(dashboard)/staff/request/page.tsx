@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameDay } from 'date-fns'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { ChevronLeft, ChevronRight, X, Clock, Lock } from 'lucide-react'
+import { format, eachDayOfInterval, getDay, isSameDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
 type DayOffRequest = {
@@ -13,6 +13,13 @@ type DayOffRequest = {
   memo?: string
 }
 
+type RequestWindow = {
+  id: string
+  fiscalYear: number
+  month: number
+  deadline: string
+}
+
 const TYPE_LABELS = { DAY_OFF: '公休', PAID_LEAVE: '有休' }
 const STATUS_COLORS = {
   PENDING: 'bg-yellow-100 text-yellow-700 border-yellow-200',
@@ -21,34 +28,108 @@ const STATUS_COLORS = {
 }
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
 
+function periodRange(fiscalYear: number, month: number): { start: Date; end: Date } {
+  const startMonth = month === 1 ? 12 : month - 1
+  const startYear = month === 1 ? fiscalYear - 1 : fiscalYear
+  return {
+    start: new Date(`${startYear}-${String(startMonth).padStart(2, '0')}-21T00:00:00`),
+    end: new Date(`${fiscalYear}-${String(month).padStart(2, '0')}-20T00:00:00`),
+  }
+}
+
+function fmtDateOnly(d: Date): string {
+  return format(d, 'yyyy-MM-dd')
+}
+
+function deadlineCountdown(iso: string): { text: string; isPast: boolean } {
+  const target = new Date(iso).getTime()
+  const now = Date.now()
+  const diff = target - now
+  if (diff <= 0) return { text: '締切済', isPast: true }
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
+  if (days > 0) return { text: `あと${days}日${hours}時間`, isPast: false }
+  if (hours > 0) return { text: `あと${hours}時間`, isPast: false }
+  const minutes = Math.floor((diff / (1000 * 60)) % 60)
+  return { text: `あと${minutes}分`, isPast: false }
+}
+
 export default function StaffRequestPage() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [windows, setWindows] = useState<RequestWindow[]>([])
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const [requests, setRequests] = useState<DayOffRequest[]>([])
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [requestType, setRequestType] = useState<'DAY_OFF' | 'PAID_LEAVE'>('DAY_OFF')
   const [memo, setMemo] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const fetchWindows = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/api/request-windows')
+    if (res.ok) {
+      const list: RequestWindow[] = await res.json()
+      // 並び替え: 締切が近い・未来のものを優先
+      list.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+      setWindows(list)
+      // デフォルト選択: 締切前で最も早い deadline のもの
+      const firstUpcoming = list.findIndex((w) => new Date(w.deadline).getTime() > Date.now())
+      if (firstUpcoming >= 0) setSelectedIdx(firstUpcoming)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    fetchWindows()
+  }, [fetchWindows])
+
+  const currentWindow = windows[selectedIdx]
+  const range = useMemo(() => {
+    if (!currentWindow) return null
+    return periodRange(currentWindow.fiscalYear, currentWindow.month)
+  }, [currentWindow])
 
   const fetchRequests = useCallback(async () => {
-    const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
-    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd')
-    const res = await fetch(`/api/day-off-requests?startDate=${start}&endDate=${end}`)
+    if (!range) return
+    const params = new URLSearchParams({
+      startDate: fmtDateOnly(range.start),
+      endDate: fmtDateOnly(range.end),
+    })
+    const res = await fetch(`/api/day-off-requests?${params}`)
     if (res.ok) setRequests(await res.json())
-  }, [currentMonth])
+  }, [range])
 
-  useEffect(() => { fetchRequests() }, [fetchRequests])
+  useEffect(() => {
+    fetchRequests()
+  }, [fetchRequests])
 
-  const days = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  })
+  if (loading) {
+    return <div className="text-center py-12 text-gray-400">読み込み中...</div>
+  }
 
-  const startDayOfWeek = getDay(startOfMonth(currentMonth))
+  if (windows.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">休み申請</h1>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center mt-6">
+          <p className="text-gray-500">現在、申請受付中の期間はありません。</p>
+          <p className="text-xs text-gray-400 mt-2">管理者が受付を開始するまでお待ちください。</p>
+        </div>
+      </div>
+    )
+  }
+
+  const days = range ? eachDayOfInterval({ start: range.start, end: range.end }) : []
+  const startDayOfWeek = range ? getDay(range.start) : 0
+  const countdown = currentWindow ? deadlineCountdown(currentWindow.deadline) : null
+  const isClosed = countdown?.isPast === true
 
   const getRequestForDate = (date: Date) =>
     requests.find((r) => isSameDay(new Date(r.date), date))
 
   const handleSubmit = async () => {
     if (!selectedDate) return
+    setError('')
     const res = await fetch('/api/day-off-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,35 +143,82 @@ export default function StaffRequestPage() {
       setSelectedDate(null)
       setMemo('')
       fetchRequests()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      setError(typeof data.error === 'string' ? data.error : '申請に失敗しました')
     }
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('この申請を取り消しますか？')) return
-    await fetch(`/api/day-off-requests/${id}`, { method: 'DELETE' })
-    fetchRequests()
+    const res = await fetch(`/api/day-off-requests/${id}`, { method: 'DELETE' })
+    if (res.ok) {
+      fetchRequests()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(typeof data.error === 'string' ? data.error : '取り消しに失敗しました')
+    }
   }
 
   return (
     <div className="max-w-xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">休み申請</h1>
-      <p className="text-sm text-gray-400 mb-6">日付をタップして公休または有休を申請してください</p>
+      <p className="text-sm text-gray-400 mb-4">期間を選択し、日付をタップして公休または有休を申請してください</p>
 
-      {/* 月ナビ */}
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1 hover:bg-gray-100 rounded">
+      {/* ウィンドウナビ */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setSelectedIdx((i) => Math.max(0, i - 1))}
+          disabled={selectedIdx === 0}
+          className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+        >
           <ChevronLeft className="w-5 h-5 text-gray-500" />
         </button>
-        <span className="font-semibold text-gray-900">
-          {format(currentMonth, 'yyyy年 M月', { locale: ja })}
+        <span className="font-semibold text-gray-900 text-lg">
+          {currentWindow.fiscalYear}年{currentWindow.month}月度
         </span>
-        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1 hover:bg-gray-100 rounded">
+        <button
+          onClick={() => setSelectedIdx((i) => Math.min(windows.length - 1, i + 1))}
+          disabled={selectedIdx === windows.length - 1}
+          className="p-1 hover:bg-gray-100 rounded disabled:opacity-30"
+        >
           <ChevronRight className="w-5 h-5 text-gray-500" />
         </button>
       </div>
 
+      {/* 締切表示 */}
+      {countdown && range && (
+        <div className={`flex items-center justify-between mb-4 p-3 rounded-lg border ${
+          isClosed
+            ? 'bg-red-50 border-red-200 text-red-700'
+            : 'bg-blue-50 border-blue-200 text-blue-700'
+        }`}>
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="w-4 h-4" />
+            <span>
+              締切: {format(new Date(currentWindow.deadline), 'M月d日 HH:mm', { locale: ja })}
+            </span>
+          </div>
+          <span className={`text-sm font-semibold ${isClosed ? 'text-red-600' : 'text-blue-600'}`}>
+            {countdown.text}
+          </span>
+        </div>
+      )}
+      <p className="text-xs text-gray-400 mb-4">
+        対象期間: {range && format(range.start, 'yyyy/MM/dd', { locale: ja })} 〜 {range && format(range.end, 'yyyy/MM/dd', { locale: ja })}
+      </p>
+
       {/* カレンダー */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 relative">
+        {isClosed && (
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-center">
+              <Lock className="w-5 h-5 text-red-600 mx-auto mb-1" />
+              <p className="text-sm font-semibold text-red-700">この期間は申請締切済です</p>
+              <p className="text-xs text-red-600 mt-1">新規申請・取消はできません</p>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-7 gap-1 mb-2">
           {DAY_NAMES.map((d, i) => (
             <div key={d} className={`text-center text-xs font-medium py-1 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>
@@ -110,16 +238,21 @@ export default function StaffRequestPage() {
             return (
               <button
                 key={day.toISOString()}
-                onClick={() => !req && setSelectedDate(day)}
+                onClick={() => !req && !isClosed && setSelectedDate(day)}
+                disabled={isClosed || !!req}
                 className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-colors ${
                   isSelected
                     ? 'bg-[#0AB4CC] text-white'
                     : req
-                    ? 'cursor-default'
-                    : 'hover:bg-gray-50'
+                      ? 'cursor-default'
+                      : isClosed
+                        ? 'cursor-not-allowed'
+                        : 'hover:bg-gray-50'
                 } ${dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-700'}`}
               >
-                <span className={isSelected ? 'text-white' : ''}>{format(day, 'd')}</span>
+                <span className={isSelected ? 'text-white' : ''}>
+                  {format(day, 'M/d')}
+                </span>
                 {req && (
                   <span className={`text-[10px] px-1 rounded mt-0.5 ${
                     req.type === 'DAY_OFF' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
@@ -134,8 +267,8 @@ export default function StaffRequestPage() {
       </div>
 
       {/* 申請フォーム */}
-      {selectedDate && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      {selectedDate && !isClosed && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-gray-900">
               {format(selectedDate, 'M月d日(E)', { locale: ja })}の申請
@@ -160,6 +293,9 @@ export default function StaffRequestPage() {
             onChange={(e) => setMemo(e.target.value)}
             className="w-full px-3 py-2 border rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#0AB4CC]/20"
           />
+          {error && (
+            <div className="bg-red-50 text-red-700 text-xs px-3 py-2 rounded mb-3">{error}</div>
+          )}
           <button onClick={handleSubmit}
             className="w-full bg-[#0AB4CC] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#099bb0]">
             申請する
@@ -169,9 +305,9 @@ export default function StaffRequestPage() {
 
       {/* 申請一覧 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <h3 className="font-semibold text-gray-900 mb-3">申請一覧</h3>
+        <h3 className="font-semibold text-gray-900 mb-3">この期間の申請</h3>
         {requests.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">この月の申請はありません</p>
+          <p className="text-sm text-gray-400 text-center py-4">この期間の申請はありません</p>
         ) : (
           <div className="space-y-2">
             {requests.map((r) => (
@@ -187,7 +323,7 @@ export default function StaffRequestPage() {
                     {r.status === 'PENDING' ? '承認待ち' : r.status === 'APPROVED' ? '承認済' : '却下'}
                   </span>
                 </div>
-                {r.status === 'PENDING' && (
+                {r.status === 'PENDING' && !isClosed && (
                   <button onClick={() => handleDelete(r.id)} className="text-gray-400 hover:text-red-500">
                     <X className="w-4 h-4" />
                   </button>

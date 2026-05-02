@@ -5,7 +5,7 @@ import { generateShiftCandidates } from '@/lib/shift-generator'
 import { GeneratorInput, SlotInput, SlotRuleInput, CandidateOutput, Workplace } from '@/lib/shift-generator/types'
 import { formatDate } from '@/lib/shift-generator/utils'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -25,9 +25,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  if (period.status === 'CONFIRMED') {
-    return NextResponse.json({ error: 'Already confirmed' }, { status: 400 })
-  }
+  // 確定済みでも再生成可（手動編集は破棄される）
 
   await prisma.shiftPeriod.update({ where: { id }, data: { status: 'GENERATING' } })
 
@@ -48,10 +46,46 @@ export async function POST(req: NextRequest, { params }: Params) {
       type: d.type as 'DAY_OFF' | 'PAID_LEAVE',
     }))
 
-    const holidaysRaw = await prisma.holiday.findMany({
+    // 事前確定セルを取得
+    const preAssignmentsRaw = await prisma.preAssignment.findMany({
+      where: { shiftPeriodId: id },
+    })
+    const preAssignmentInputs = preAssignmentsRaw.map((p) => ({
+      employeeId: p.employeeId,
+      date: formatDate(new Date(p.date)),
+      workplace: p.workplace as Workplace | null,
+      memo: p.memo,
+    }))
+
+    // 祝日を自動取得（既にDBにあれば使う、なければ公開APIから取得して保存）
+    let holidaysRaw = await prisma.holiday.findMany({
       where: { date: { gte: new Date(startDate), lte: new Date(endDate) } },
     })
+
+    if (holidaysRaw.length === 0) {
+      try {
+        const apiRes = await fetch('https://holidays-jp.github.io/api/v1/date.json', { cache: 'no-store' })
+        if (apiRes.ok) {
+          const data: Record<string, string> = await apiRes.json()
+          for (const [dateStr, name] of Object.entries(data)) {
+            const d = new Date(dateStr)
+            await prisma.holiday.upsert({
+              where: { date: d },
+              update: { name },
+              create: { date: d, name },
+            })
+          }
+          holidaysRaw = await prisma.holiday.findMany({
+            where: { date: { gte: new Date(startDate), lte: new Date(endDate) } },
+          })
+        }
+      } catch (e) {
+        console.error('[generate] Failed to fetch holidays:', e)
+      }
+    }
+
     const holidayInputs = holidaysRaw.map((h) => ({ date: formatDate(new Date(h.date)) }))
+    console.log(`[generate] Holidays in period: ${holidayInputs.length}`)
 
     const endDateObj = new Date(endDate)
     const holidayConfig = await prisma.monthlyHolidayConfig.findUnique({
@@ -112,7 +146,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         holidays: holidayInputs,
         holidayCount,
         candidateCount: CANDIDATE_COUNT,
-        allowUnderstaffing: workplace !== 'FACTORY', // 工場以外は移動で補填
+        allowUnderstaffing: workplace !== 'FACTORY',
+        preAssignments: preAssignmentInputs.filter((p) => employees.some((e) => e.id === p.employeeId)),
       }
 
       console.log(`[generate] ${workplace}: employees=${input.employees.length}, slots=${input.slots.length}`)
@@ -139,12 +174,19 @@ export async function POST(req: NextRequest, { params }: Params) {
     const cafeSkillRows = await prisma.skill.findMany({ where: { workplace: 'CAFE' } })
     for (const s of cafeSkillRows) allCafeSkillsByName.set(s.name, s.id)
 
+    // 全勤務場所×曜日タイプの稼働人数ルール
+    const allStaffingRules = await prisma.workplaceStaffingRule.findMany()
+    const requiredOf = (workplace: string, dayType: string): number => {
+      return allStaffingRules.find((r) => r.workplace === workplace && r.dayType === dayType)?.requiredCount ?? 0
+    }
+
     const mergedCandidates: CandidateOutput[] = []
     for (let i = 0; i < maxCandidates; i++) {
       const merged: CandidateOutput = {
         candidateIndex: i + 1,
         assignments: [],
         violations: [],
+        hardViolations: [],
         score: 0,
       }
       let totalScore = 0
@@ -153,7 +195,28 @@ export async function POST(req: NextRequest, { params }: Params) {
         if (!c) continue
         merged.assignments.push(...c.assignments)
         merged.violations.push(...c.violations.map((v) => `[${wp}] ${v}`))
+        merged.hardViolations.push(...(c.hardViolations ?? []).map((v) => `[${wp}] ${v}`))
         totalScore += c.score ?? 0
+      }
+
+      // 事前確定で「出勤確定だが勤務場所がprimaryと違う」場合、勤務場所を上書き
+      for (const pa of preAssignmentInputs) {
+        if (pa.workplace === null) continue
+        const target = merged.assignments.find((a) => a.employeeId === pa.employeeId && a.date === pa.date)
+        if (target) {
+          target.workplace = pa.workplace
+          target.slotId = null
+          target.isMoved = true
+        } else {
+          // 候補側に出勤がない場合は新規追加
+          merged.assignments.push({
+            employeeId: pa.employeeId,
+            date: pa.date,
+            workplace: pa.workplace,
+            slotId: null,
+            isMoved: true,
+          })
+        }
       }
 
       // 期間の全日付
@@ -206,8 +269,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       for (const date of allDates) {
         const dow = new Date(date).getDay()
         const dayType = (dow === 0 || dow === 6) ? 'HOLIDAY' : (dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU')
-        const cafeMin = dayType === 'HOLIDAY' ? 4 : 3
-        const floorMin = dayType === 'HOLIDAY' ? 7 : 5
+        const cafeMin = requiredOf('CAFE', dayType)
+        const floorMin = requiredOf('FLOOR', dayType)
 
         const cafeToday = merged.assignments.filter((a) => a.date === date && a.workplace === 'CAFE')
         const floorToday = merged.assignments.filter((a) => a.date === date && a.workplace === 'FLOOR')
@@ -236,7 +299,14 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
 
         // この日休みの工場従業員（移動候補）
+        // ただし PreAssignment で「休み確定」(workplace=null) のものは動かさない
+        const lockedOffOnDate = new Set(
+          preAssignmentInputs
+            .filter((pa) => pa.workplace === null && pa.date === date)
+            .map((pa) => pa.employeeId),
+        )
         const restingFactoryEmps = factoryEmployees.filter((emp) => {
+          if (lockedOffOnDate.has(emp.id)) return false
           const workDays = empWorkDays.get(emp.id) ?? new Set()
           return !workDays.has(date)
         })
@@ -316,20 +386,16 @@ export async function POST(req: NextRequest, { params }: Params) {
         const dow = new Date(d).getDay()
         const dayType = (dow === 0 || dow === 6) ? 'HOLIDAY' : (dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU')
 
-        // staffingチェック
+        // staffingチェック（SOFT）
         for (const wp of WORKPLACES) {
-          const required = wp === 'FACTORY'
-            ? (dayType === 'WEEKDAY_MON_THU' ? 9 : 10)
-            : wp === 'CAFE'
-              ? (dayType === 'HOLIDAY' ? 4 : 3)
-              : (dayType === 'HOLIDAY' ? 7 : 5)
+          const required = requiredOf(wp, dayType)
           const actual = dailyCount[d]?.[wp] ?? 0
           if (actual < required) {
             merged.violations.push(`[${wp}] ${d}: ${actual}名（必要${required}名）`)
           }
         }
 
-        // カフェ習熟度: ▲がいる日は◎が必要
+        // カフェ習熟度（HARD）: ▲がいる日は◎が必要
         const cafeAssignments = (dailyAssignments[d] ?? []).filter((a) => a.workplace === 'CAFE')
         let cafeHasLow = false
         let cafeHasHigh = false
@@ -343,10 +409,10 @@ export async function POST(req: NextRequest, { params }: Params) {
           }
         }
         if (cafeHasLow && !cafeHasHigh) {
-          merged.violations.push(`[CAFE] ${d}: ▲の従業員がいる日は◎の従業員も必要`)
+          merged.hardViolations.push(`[CAFE] ${d}: ▲の従業員がいる日は◎の従業員も必要`)
         }
 
-        // フロア習熟度: ▲は最大2人
+        // フロア習熟度（HARD）: ▲は最大2人
         const floorAssignments = (dailyAssignments[d] ?? []).filter((a) => a.workplace === 'FLOOR')
         let floorLowCount = 0
         for (const a of floorAssignments) {
@@ -354,14 +420,11 @@ export async function POST(req: NextRequest, { params }: Params) {
           if (emp?.floorProficiency === 'LOW') floorLowCount++
         }
         if (floorLowCount > 2) {
-          merged.violations.push(`[FLOOR] ${d}: ▲の従業員が${floorLowCount}名（上限2名）`)
+          merged.hardViolations.push(`[FLOOR] ${d}: ▲の従業員が${floorLowCount}名（上限2名）`)
         }
       }
 
-      // 共通条件の違反チェック（公休数、連続勤務、勤務場所適性）
-      const commonViolations: string[] = []
-
-      // 公休数（最低holidayCount日）
+      // HARD: 公休数（最低holidayCount日）
       const workDaysByEmp = new Map<string, number>()
       for (const a of merged.assignments) {
         workDaysByEmp.set(a.employeeId, (workDaysByEmp.get(a.employeeId) ?? 0) + 1)
@@ -370,11 +433,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         const workDays = workDaysByEmp.get(emp.id) ?? 0
         const restDays = allDates.length - workDays
         if (restDays < holidayCount) {
-          commonViolations.push(`[共通] ${emp.lastName}: 公休${restDays}日（最低${holidayCount}日）`)
+          merged.hardViolations.push(`[公休] ${emp.lastName}: 公休${restDays}日（最低${holidayCount}日）`)
         }
       }
 
-      // 連続勤務日数（最大5日）
+      // HARD: 連続勤務日数（最大5日）
       for (const emp of allEmployees) {
         const empWorkSet = new Set(merged.assignments.filter((a) => a.employeeId === emp.id).map((a) => a.date))
         let consecutive = 0
@@ -382,7 +445,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           if (empWorkSet.has(d)) {
             consecutive++
             if (consecutive > 5) {
-              commonViolations.push(`[共通] ${emp.lastName}: ${d}時点で${consecutive}連勤（上限5日）`)
+              merged.hardViolations.push(`[5連勤] ${emp.lastName}: ${d}時点で${consecutive}連勤`)
               break
             }
           } else {
@@ -391,18 +454,15 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
       }
 
-      // 勤務場所適性
+      // HARD: 勤務場所適性
       for (const a of merged.assignments) {
         const emp = allEmpMap.get(a.employeeId)
         if (!emp) continue
         const allowedWorkplaces = new Set([emp.primaryWorkplace, ...emp.secondaryWorkplaces.map((sw) => sw.workplace)])
         if (!allowedWorkplaces.has(a.workplace)) {
-          commonViolations.push(`[共通] ${emp.lastName}: ${a.date}に${a.workplace}に配置されているが資格なし`)
+          merged.hardViolations.push(`[適性] ${emp.lastName}: ${a.date}に${a.workplace}（資格なし）`)
         }
       }
-
-      merged.violations.push(...commonViolations)
-      ;(merged as CandidateOutput & { hasCommonViolation?: boolean }).hasCommonViolation = commonViolations.length > 0
 
       // スコア: カフェ・フロアの総出勤数
       const cafeFloorCount = merged.assignments.filter((a) => a.workplace === 'CAFE' || a.workplace === 'FLOOR').length
@@ -411,19 +471,24 @@ export async function POST(req: NextRequest, { params }: Params) {
       mergedCandidates.push(merged)
     }
 
-    // 共通条件違反のある候補を除外
-    const validCandidates = mergedCandidates.filter((c) => !((c as CandidateOutput & { hasCommonViolation?: boolean }).hasCommonViolation))
+    // HARD違反のない候補のみ採用
+    const validCandidates = mergedCandidates.filter((c) => c.hardViolations.length === 0)
 
     if (validCandidates.length === 0) {
-      // すべて共通条件違反 → エラー返却
       await prisma.shiftPeriod.update({ where: { id }, data: { status: 'DRAFT' } })
+      const sampleHard = mergedCandidates[0]?.hardViolations.slice(0, 10) ?? []
       return NextResponse.json({
-        error: '共通条件を満たすシフトを生成できませんでした',
-        detail: mergedCandidates[0]?.violations.filter((v) => v.startsWith('[共通]')).slice(0, 10) ?? [],
+        error: '必須条件を満たすシフトを生成できませんでした',
+        detail: [...allErrors, ...sampleHard],
       }, { status: 400 })
     }
 
-    validCandidates.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    // SOFT違反の少ない順にソート (タイブレークで2連休+カフェ/フロア配置の score)
+    validCandidates.sort((a, b) => {
+      const violationDiff = a.violations.length - b.violations.length
+      if (violationDiff !== 0) return violationDiff
+      return (b.score ?? 0) - (a.score ?? 0)
+    })
     validCandidates.forEach((c, i) => { c.candidateIndex = i + 1 })
     mergedCandidates.length = 0
     mergedCandidates.push(...validCandidates)
@@ -437,6 +502,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           shiftPeriodId: id,
           candidateIndex: candidate.candidateIndex,
           score: candidate.score ?? 0,
+          violations: candidate.violations,
         },
       })
 

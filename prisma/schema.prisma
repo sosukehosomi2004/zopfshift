@@ -14,8 +14,8 @@ model Employee {
   firstName       String
   lastNameRomaji  String
   firstNameRomaji String
-  email           String         @unique
   password        String
+  mustChangePassword Boolean      @default(false)
   role            EmployeeRole   @default(STAFF)
   employmentType  EmploymentType
   primaryWorkplace Workplace
@@ -29,7 +29,38 @@ model Employee {
   skills              EmployeeSkill[]
   dayOffRequests      DayOffRequest[]
   shiftAssignments    ShiftAssignment[]
+  preAssignments      PreAssignment[]
+  recurringRules      EmployeeRecurringRule[]
   notifications       Notification[]
+}
+
+// 通年固定ルール: 「毎週月曜は休み」「毎週金曜は工場で出勤」など
+model EmployeeRecurringRule {
+  id          String            @id @default(cuid())
+  employeeId  String
+  // 条件 (dayOfWeek または dayCategory のどちらか1つをセット)
+  dayOfWeek       Int?              // 0=日 〜 6=土
+  dayCategory     DayCategory?      // 種別ベース
+  // 曜日指定時のみ: 祝日を除外するか (true=除外 / false=含む)
+  excludeHolidays Boolean?
+  // アクション
+  ruleType    RecurringRuleType
+  workplace   Workplace?        // ALWAYS_WORKのとき: 勤務先 (null=primary)
+  memo        String?
+  createdAt   DateTime          @default(now())
+
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+enum RecurringRuleType {
+  ALWAYS_OFF
+  ALWAYS_WORK
+}
+
+enum DayCategory {
+  HOLIDAY              // 祝日のみ
+  WEEKEND_OR_HOLIDAY   // 休日 = 土日 + 祝日
+  WEEKDAY              // 平日 = 月〜金 (祝日除く)
 }
 
 enum EmployeeRole {
@@ -200,6 +231,20 @@ enum RequestStatus {
   REJECTED
 }
 
+// ===== 申請受付ウィンドウ =====
+// シフト期間 (ShiftPeriod) とは独立した、休み申請の受付窓口管理。
+// 「2026年6月度の申請を 4/30 まで受け付ける」のような運用をサポート。
+model RequestWindow {
+  id         String   @id @default(cuid())
+  fiscalYear Int
+  month      Int      // 1-12 (label の月、例: 6 → 6月度 = 5/21~6/20)
+  deadline   DateTime // 申請期限 (日時、例: 2026-04-30 23:59)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([fiscalYear, month])
+}
+
 // ===== シフト期間・生成・確定 =====
 
 model ShiftPeriod {
@@ -211,7 +256,23 @@ model ShiftPeriod {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  candidates ShiftCandidate[]
+  candidates     ShiftCandidate[]
+  preAssignments PreAssignment[]
+}
+
+// 自動生成前に管理者が確定したシフト（生成時に固定される）
+model PreAssignment {
+  id            String      @id @default(cuid())
+  shiftPeriodId String
+  employeeId    String
+  date          DateTime    @db.Date
+  workplace     Workplace?  // null = 休み確定
+  memo          String?
+
+  shiftPeriod   ShiftPeriod @relation(fields: [shiftPeriodId], references: [id], onDelete: Cascade)
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftPeriodId, employeeId, date])
 }
 
 enum PeriodStatus {
@@ -228,6 +289,7 @@ model ShiftCandidate {
   candidateIndex Int
   score          Float?
   isSelected     Boolean     @default(false)
+  violations     Json?       // SOFT違反のリスト（定数不足、ポジション未充足）
   shiftPeriod    ShiftPeriod @relation(fields: [shiftPeriodId], references: [id], onDelete: Cascade)
   createdAt      DateTime    @default(now())
 
@@ -242,10 +304,11 @@ model ShiftAssignment {
   shiftCandidateId String
   employeeId       String
   date             DateTime       @db.Date
-  workplace        Workplace
+  workplace        Workplace?     // null = 休み
   workplaceSlotId  String?
   shiftTimeSlot    ShiftTimeSlot?
   isMoved          Boolean        @default(false)
+  memo             String?        // 1文字メモ（手動調整用）
 
   shiftCandidate ShiftCandidate @relation(fields: [shiftCandidateId], references: [id], onDelete: Cascade)
   employee       Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)

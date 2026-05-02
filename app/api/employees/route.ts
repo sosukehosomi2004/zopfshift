@@ -3,14 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { generatePassword } from '@/lib/generate-password'
 
 const createEmployeeSchema = z.object({
   lastName: z.string().min(1),
   firstName: z.string(),
   lastNameRomaji: z.string().min(1),
   firstNameRomaji: z.string(),
-  email: z.string().email(),
-  password: z.string().min(6),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME']),
   primaryWorkplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER']),
   secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'])).optional(),
@@ -60,17 +59,14 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data
 
-  const existing = await prisma.employee.findUnique({ where: { email: data.email } })
-  if (existing) {
-    return NextResponse.json({ error: 'Email already exists' }, { status: 409 })
-  }
-
   // 工場は正社員のみ
   if (data.primaryWorkplace === 'FACTORY' && data.employmentType === 'PART_TIME') {
     return NextResponse.json({ error: 'Factory only allows full-time employees' }, { status: 400 })
   }
 
-  const hashedPassword = await bcrypt.hash(data.password, 10)
+  // 初期パスワードを自動生成 (管理者には返却して伝達してもらう)
+  const initialPassword = generatePassword()
+  const hashedPassword = await bcrypt.hash(initialPassword, 10)
 
   const employee = await prisma.employee.create({
     data: {
@@ -78,8 +74,8 @@ export async function POST(req: NextRequest) {
       firstName: data.firstName,
       lastNameRomaji: data.lastNameRomaji,
       firstNameRomaji: data.firstNameRomaji,
-      email: data.email,
       password: hashedPassword,
+      mustChangePassword: true,
       employmentType: data.employmentType,
       primaryWorkplace: data.primaryWorkplace,
       secondaryWorkplaces: data.secondaryWorkplaces
@@ -96,5 +92,6 @@ export async function POST(req: NextRequest) {
     },
   })
 
-  return NextResponse.json(employee, { status: 201 })
+  // 初期パスワードはレスポンスでのみ返す (DBには平文保存しない)
+  return NextResponse.json({ ...employee, initialPassword }, { status: 201 })
 }

@@ -17,10 +17,15 @@ export const authConfig: NextAuthConfig = {
       if (!isLoggedIn) return false
       return true
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user && 'role' in user) {
         token.id = user.id
         token.role = user.role as string
+        token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false
+      }
+      // session.update() でフラグを上書き可能 (パスワード変更後の解除に使う)
+      if (trigger === 'update' && session?.mustChangePassword !== undefined) {
+        token.mustChangePassword = session.mustChangePassword
       }
       return token
     },
@@ -28,6 +33,7 @@ export const authConfig: NextAuthConfig = {
       if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.mustChangePassword = (token.mustChangePassword as boolean | undefined) ?? false
       }
       return session
     },

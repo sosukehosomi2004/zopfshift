@@ -28,3 +28,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   return NextResponse.json(period)
 }
+
+// DELETE /api/shift-periods/[id] - シフト期間を完全削除 (候補・事前確定もカスケード削除)
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { id } = await params
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const period = await prisma.shiftPeriod.findUnique({ where: { id } })
+  if (!period) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  await prisma.shiftPeriod.delete({ where: { id } })
+  return NextResponse.json({ success: true })
+}

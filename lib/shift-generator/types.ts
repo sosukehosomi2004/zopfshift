@@ -76,6 +76,14 @@ export type HolidayInput = {
   date: string // YYYY-MM-DD
 }
 
+/** 事前確定（管理者が生成前に固定したセル） */
+export type PreAssignmentInput = {
+  employeeId: string
+  date: string // YYYY-MM-DD
+  workplace: Workplace | null // null = 休み確定
+  memo?: string | null
+}
+
 /** 生成エンジンへの入力データ */
 export type GeneratorInput = {
   startDate: string // YYYY-MM-DD (期間開始日)
@@ -89,6 +97,9 @@ export type GeneratorInput = {
   holidayCount: number // この月の公休数
   candidateCount: number // 生成する候補数
   allowUnderstaffing?: boolean // trueの場合、定数違反を許容（後の移動で補填）
+  preAssignments?: PreAssignmentInput[] // 事前確定セル
+  targetValid?: number // HARD違反0件の候補をこの数集める (default: 1000)
+  maxAttempts?: number // 最大試行回数 (default: 5000)
 }
 
 /** 1日の従業員割当 */
@@ -104,7 +115,8 @@ export type DayAssignment = {
 export type CandidateOutput = {
   candidateIndex: number
   assignments: DayAssignment[]
-  violations: string[]
+  violations: string[] // 警告（SOFT違反、定数不足など）
+  hardViolations: string[] // 必須違反（5連勤、公休数、習熟度、小松、適性）
   score?: number // 優先条件スコア（高いほど良い）
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, ChevronRight } from 'lucide-react'
+import { Plus, ChevronRight, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 type ShiftPeriod = {
@@ -106,12 +106,14 @@ export default function ShiftPeriodsPage() {
       ) : (
         <div className="space-y-2">
           {periods.map((p) => (
-            <Link
+            <div
               key={p.id}
-              href={`/dashboard/shift-periods/${p.id}`}
               className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:border-[#0AB4CC]/30 transition-colors"
             >
-              <div className="flex items-center gap-4">
+              <Link
+                href={`/dashboard/shift-periods/${p.id}`}
+                className="flex items-center gap-4 flex-1"
+              >
                 <div>
                   <div className="font-semibold text-gray-900">{p.label}</div>
                   <div className="text-xs text-gray-400 mt-0.5">
@@ -124,9 +126,30 @@ export default function ShiftPeriodsPage() {
                 {p._count.candidates > 0 && (
                   <span className="text-xs text-gray-400">{p._count.candidates}候補</span>
                 )}
+              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const candidateNote = p._count.candidates > 0 ? `\n候補${p._count.candidates}件と事前確定セルもすべて削除されます。` : ''
+                    if (!confirm(`「${p.label}」を削除します。${candidateNote}\n\nよろしいですか？`)) return
+                    const res = await fetch(`/api/shift-periods/${p.id}`, { method: 'DELETE' })
+                    if (res.ok) {
+                      fetchPeriods()
+                    } else {
+                      alert('削除に失敗しました')
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded text-red-600 hover:bg-red-50 inline-flex items-center gap-1"
+                  title="シフト期間を削除"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  削除
+                </button>
+                <ChevronRight className="w-4 h-4 text-gray-300" />
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-300" />
-            </Link>
+            </div>
           ))}
         </div>
       )}

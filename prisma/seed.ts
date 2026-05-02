@@ -34,7 +34,6 @@ async function main() {
       firstName: '太郎',
       lastNameRomaji: 'Kanri',
       firstNameRomaji: 'Taro',
-      email: 'admin@zopf.example.com',
       password: hash,
       role: EmployeeRole.ADMIN,
       employmentType: EmploymentType.FULL_TIME,
@@ -205,7 +204,6 @@ async function main() {
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
         firstNameRomaji: data.firstNameRomaji,
-        email: `factory${i + 1}@zopf.example.com`,
         password: hash,
         role: EmployeeRole.STAFF,
         employmentType: EmploymentType.FULL_TIME,
@@ -313,7 +311,6 @@ async function main() {
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
         firstNameRomaji: data.firstNameRomaji,
-        email: `cafe${i + 1}@zopf.example.com`,
         password: hash,
         role: EmployeeRole.STAFF,
         employmentType: data.employmentType as EmploymentType,
@@ -392,6 +389,37 @@ async function main() {
       secondaryWorkplaces: [],
       floorProficiency: Proficiency.LOW,
     },
+    // フロアパート
+    {
+      lastName: '新倉', firstName: '琴絵', lastNameRomaji: 'Shinkura', firstNameRomaji: 'Kotoe', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '渡邉', firstName: '星来', lastNameRomaji: 'Watanabe', firstNameRomaji: 'Seira', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [Workplace.OTHER],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '竹歳', firstName: '千鶴', lastNameRomaji: 'Taketoshi', firstNameRomaji: 'Chizuru', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '厚', firstName: '靖代', lastNameRomaji: 'Atsu', firstNameRomaji: 'Yasuyo', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [Workplace.OTHER],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '川村', firstName: 'のり子', lastNameRomaji: 'Kawamura', firstNameRomaji: 'Noriko', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [Workplace.OTHER, Workplace.CAFE],
+      floorProficiency: Proficiency.MID,
+    },
+    {
+      lastName: '富田', firstName: '彩楽', lastNameRomaji: 'Tomita', firstNameRomaji: 'Sara', employmentType: 'PART_TIME',
+      secondaryWorkplaces: [],
+      floorProficiency: Proficiency.MID,
+    },
   ]
 
   for (let i = 0; i < floorEmployees.length; i++) {
@@ -402,7 +430,6 @@ async function main() {
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
         firstNameRomaji: data.firstNameRomaji,
-        email: `floor${i + 1}@zopf.example.com`,
         password: hash,
         role: EmployeeRole.STAFF,
         employmentType: data.employmentType as EmploymentType,
@@ -431,6 +458,72 @@ async function main() {
           data: { employeeId: emp.id, skillId: factorySkills[skillName] },
         })
       }
+    }
+  }
+
+  // ===== 事務パート =====
+  type OfficeEmployeeData = {
+    lastName: string
+    firstName: string
+    lastNameRomaji: string
+    firstNameRomaji: string
+    secondaryWorkplaces: Workplace[]
+  }
+  const officeEmployees: OfficeEmployeeData[] = [
+    { lastName: '柳', firstName: '真理奈', lastNameRomaji: 'Yanagi', firstNameRomaji: 'Marina', secondaryWorkplaces: [Workplace.OTHER] },
+    { lastName: '木村', firstName: '舞', lastNameRomaji: 'Kimura', firstNameRomaji: 'Mai', secondaryWorkplaces: [Workplace.OTHER] },
+    { lastName: 'ローフト', firstName: '芳', lastNameRomaji: 'Looft', firstNameRomaji: 'Kaori', secondaryWorkplaces: [] },
+  ]
+  for (let i = 0; i < officeEmployees.length; i++) {
+    const data = officeEmployees[i]
+    const emp = await prisma.employee.create({
+      data: {
+        lastName: data.lastName,
+        firstName: data.firstName,
+        lastNameRomaji: data.lastNameRomaji,
+        firstNameRomaji: data.firstNameRomaji,
+        password: hash,
+        role: EmployeeRole.STAFF,
+        employmentType: EmploymentType.PART_TIME,
+        primaryWorkplace: Workplace.OFFICE,
+      },
+    })
+    for (const wp of data.secondaryWorkplaces) {
+      await prisma.employeeSecondaryWorkplace.create({ data: { employeeId: emp.id, workplace: wp } })
+    }
+  }
+
+  // ===== その他パート（宅急便等） =====
+  type OtherEmployeeData = {
+    lastName: string
+    firstName: string
+    lastNameRomaji: string
+    firstNameRomaji: string
+    secondaryWorkplaces: Workplace[]
+  }
+  const otherEmployees: OtherEmployeeData[] = [
+    { lastName: '赤池', firstName: '梢', lastNameRomaji: 'Akaike', firstNameRomaji: 'Kozue', secondaryWorkplaces: [Workplace.FLOOR] },
+    { lastName: '奥', firstName: '寿子', lastNameRomaji: 'Oku', firstNameRomaji: 'Hisako', secondaryWorkplaces: [] },
+    { lastName: '山下', firstName: '恵美子', lastNameRomaji: 'Yamashita', firstNameRomaji: 'Emiko', secondaryWorkplaces: [] },
+    { lastName: '湯原', firstName: '愛子', lastNameRomaji: 'Yuhara', firstNameRomaji: 'Aiko', secondaryWorkplaces: [] },
+    { lastName: '藤本', firstName: '文子', lastNameRomaji: 'Fujimoto', firstNameRomaji: 'Ayako', secondaryWorkplaces: [] },
+  ]
+  for (let i = 0; i < otherEmployees.length; i++) {
+    const data = otherEmployees[i]
+    const emp = await prisma.employee.create({
+      data: {
+        lastName: data.lastName,
+        firstName: data.firstName,
+        lastNameRomaji: data.lastNameRomaji,
+        firstNameRomaji: data.firstNameRomaji,
+        password: hash,
+        role: EmployeeRole.STAFF,
+        employmentType: EmploymentType.PART_TIME,
+        primaryWorkplace: Workplace.OTHER,
+      },
+    })
+    for (const wp of data.secondaryWorkplaces) {
+      await prisma.employeeSecondaryWorkplace.create({ data: { employeeId: emp.id, workplace: wp } })
     }
   }
 
@@ -535,8 +628,8 @@ async function main() {
       { workplace: Workplace.CAFE, dayType: DayType.FRIDAY, requiredCount: 3 },
       { workplace: Workplace.CAFE, dayType: DayType.HOLIDAY, requiredCount: 4 },
       // フロア
-      { workplace: Workplace.FLOOR, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 5, minFullTimeCount: 3, baseFullTimeCount: 3 },
-      { workplace: Workplace.FLOOR, dayType: DayType.FRIDAY, requiredCount: 5, minFullTimeCount: 3, baseFullTimeCount: 3 },
+      { workplace: Workplace.FLOOR, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 6, minFullTimeCount: 3, baseFullTimeCount: 3 },
+      { workplace: Workplace.FLOOR, dayType: DayType.FRIDAY, requiredCount: 6, minFullTimeCount: 3, baseFullTimeCount: 3 },
       { workplace: Workplace.FLOOR, dayType: DayType.HOLIDAY, requiredCount: 7, minFullTimeCount: 4, baseFullTimeCount: 4 },
     ],
   })
@@ -549,10 +642,13 @@ async function main() {
   }
 
   console.log('Seed completed successfully!')
-  console.log('Admin: admin@zopf.example.com / password123')
-  console.log('Factory staff: factory1@zopf.example.com ~ factory16@zopf.example.com / password123')
-  console.log('Cafe staff: cafe1@zopf.example.com ~ cafe4@zopf.example.com / password123')
-  console.log('Floor staff: floor1@zopf.example.com ~ floor8@zopf.example.com / password123')
+  console.log('社員番号でログイン (パスワードは全員 password123)')
+  console.log('  管理者: 社員番号 1')
+  console.log('  工場スタッフ: 社員番号 2 〜 17')
+  console.log('  カフェスタッフ: 社員番号 18 〜 26')
+  console.log('  フロアスタッフ: 社員番号 27 〜 40')
+  console.log('  事務スタッフ: 社員番号 41 〜 43')
+  console.log('  その他スタッフ: 社員番号 44 〜 48')
 }
 
 main()

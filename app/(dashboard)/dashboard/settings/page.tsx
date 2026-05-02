@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Save, Plus, Trash2 } from 'lucide-react'
+import { PasswordChangeForm } from '@/components/account/PasswordChangeForm'
+import { StaffingRulesEditor } from '@/components/settings/StaffingRulesEditor'
+import { RulesOverview } from '@/components/settings/RulesOverview'
 
 type MonthConfig = { month: number; holidayCount: number }
 type Holiday = { id: string; date: string; name: string }
@@ -126,6 +129,23 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-gray-400 mb-4">祝日はシフト生成時に「休日」として扱われます</p>
 
+        {/* 自動取得ボタン */}
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/holidays', { method: 'POST' })
+            const data = await res.json()
+            if (res.ok) {
+              alert(`${data.count}件の祝日を取得しました`)
+              fetchHolidays()
+            } else {
+              alert('祝日取得に失敗しました')
+            }
+          }}
+          className="mb-4 bg-[#0AB4CC] text-white px-4 py-2 rounded-lg hover:bg-[#099bb0] text-sm font-medium"
+        >
+          祝日を自動取得（日本の祝日）
+        </button>
+
         {/* 追加フォーム */}
         <div className="flex gap-2 mb-4">
           <input
@@ -168,6 +188,22 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="font-semibold mb-3">シフト生成ルール (稼働人数)</h2>
+        <StaffingRulesEditor />
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="font-semibold mb-3">シフト生成ルール (一覧)</h2>
+        <RulesOverview />
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="font-semibold">自分のパスワード変更</h2>
+        <p className="text-xs text-gray-400 mb-3">ログイン中のアカウント (あなた) のパスワードを変更します。<br />他の従業員のパスワードをリセットするには「従業員管理」→ 編集 →「パスワードをリセット」をご利用ください。</p>
+        <PasswordChangeForm />
       </section>
     </div>
   )

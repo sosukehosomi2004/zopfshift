@@ -4,7 +4,11 @@ import { auth } from '@/lib/auth'
 import { z } from 'zod'
 
 const updateSkillsSchema = z.object({
-  skillIds: z.array(z.string()),
+  skills: z.array(z.object({
+    skillId: z.string(),
+    proficiency: z.enum(['LOW', 'MID', 'HIGH']).nullable().optional(),
+  })),
+  floorProficiency: z.enum(['LOW', 'MID', 'HIGH']).nullable().optional(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -26,9 +30,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // 全削除→再作成
   await prisma.employeeSkill.deleteMany({ where: { employeeId: id } })
 
-  if (parsed.data.skillIds.length > 0) {
+  if (parsed.data.skills.length > 0) {
     await prisma.employeeSkill.createMany({
-      data: parsed.data.skillIds.map((skillId) => ({ employeeId: id, skillId })),
+      data: parsed.data.skills.map((s) => ({
+        employeeId: id,
+        skillId: s.skillId,
+        proficiency: s.proficiency ?? null,
+      })),
+    })
+  }
+
+  // floorProficiency 更新 (キーが渡された場合のみ)
+  if (Object.prototype.hasOwnProperty.call(parsed.data, 'floorProficiency')) {
+    await prisma.employee.update({
+      where: { id },
+      data: { floorProficiency: parsed.data.floorProficiency ?? null },
     })
   }
 

@@ -13,6 +13,7 @@ const updateEmployeeSchema = z.object({
   secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'])).optional(),
   availableShiftTimes: z.array(z.enum(['EARLY', 'DAYTIME', 'CLOSE'])).optional(),
   isActive: z.boolean().optional(),
+  role: z.enum(['ADMIN', 'STAFF']).optional(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -60,6 +61,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // 工場は正社員のみチェック
   if (data.primaryWorkplace === 'FACTORY' && data.employmentType === 'PART_TIME') {
     return NextResponse.json({ error: 'Factory only allows full-time employees' }, { status: 400 })
+  }
+
+  // 自分自身を STAFF に降格しようとした場合はブロック (ロックアウト防止)
+  if (data.role === 'STAFF' && session.user.id === id) {
+    return NextResponse.json({ error: '自分自身の管理者権限は外せません' }, { status: 400 })
   }
 
   // 移動可能な勤務場所の更新（指定されたら全削除→再作成）

@@ -7,8 +7,9 @@ const { auth } = NextAuth(authConfig)
 
 const PUBLIC_PATHS = ['/login', '/signup']
 const STAFF_PATHS = ['/staff/myshift', '/staff/request']
+const FORCE_CHANGE_PATH = '/account/change-password'
 
-export default auth((req: NextRequest & { auth: { user?: { role?: string } } | null }) => {
+export default auth((req: NextRequest & { auth: { user?: { role?: string; mustChangePassword?: boolean } } | null }) => {
   const { pathname } = req.nextUrl
 
   // 公開ページはスキップ
@@ -19,6 +20,16 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string } } | n
   // 未ログイン → ログインページへ
   if (!req.auth) {
     return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  // 強制パスワード変更が必要 → 専用ページへ
+  const mustChange = req.auth?.user?.mustChangePassword === true
+  if (mustChange && !pathname.startsWith(FORCE_CHANGE_PATH)) {
+    return NextResponse.redirect(new URL(FORCE_CHANGE_PATH, req.url))
+  }
+  // 変更済みなのに強制ページへアクセス → 通常画面へ
+  if (!mustChange && pathname.startsWith(FORCE_CHANGE_PATH)) {
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
   const role = req.auth?.user?.role ?? null

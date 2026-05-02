@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Search, Factory, Coffee, Store, Briefcase, MoreHorizontal } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSession } from 'next-auth/react'
+import { Plus, Search, Factory, Coffee, Store, Briefcase, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, ShieldCheck } from 'lucide-react'
 import { EmployeeFormModal } from '@/components/employee/EmployeeFormModal'
 import { EmployeeSkillModal } from '@/components/employee/EmployeeSkillModal'
+import { EmployeeRulesModal } from '@/components/employee/EmployeeRulesModal'
+import { EmployeeDeleteModal } from '@/components/employee/EmployeeDeleteModal'
+import { EmployeePasswordResetModal } from '@/components/employee/EmployeePasswordResetModal'
+import { EmployeeCreatedModal } from '@/components/employee/EmployeeCreatedModal'
 
 type Skill = {
   id: string
@@ -18,14 +23,14 @@ type Employee = {
   firstName: string
   lastNameRomaji: string
   firstNameRomaji: string
-  email: string
   role: string
   employmentType: string
   primaryWorkplace: string
   isActive: boolean
+  floorProficiency: 'LOW' | 'MID' | 'HIGH' | null
   secondaryWorkplaces: { workplace: string }[]
   availableShiftTimes: { timeSlot: string }[]
-  skills: { skill: Skill }[]
+  skills: { skill: Skill; proficiency: 'LOW' | 'MID' | 'HIGH' | null }[]
 }
 
 const WORKPLACE_LABELS: Record<string, string> = {
@@ -51,7 +56,19 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
 
 const WORKPLACE_TABS = ['ALL', 'FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'] as const
 
+const WORKPLACE_ORDER: Record<string, number> = {
+  FACTORY: 0, CAFE: 1, FLOOR: 2, OFFICE: 3, OTHER: 4,
+}
+const EMPLOYMENT_ORDER: Record<string, number> = {
+  FULL_TIME: 0, PART_TIME: 1,
+}
+
+type SortKey = 'employeeNumber' | 'name' | 'workplace' | 'employmentType' | 'skillCount' | 'secondary'
+type SortDir = 'asc' | 'desc'
+
 export default function EmployeesPage() {
+  const { data: session } = useSession()
+  const currentUserId = session?.user?.id
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -59,35 +76,99 @@ export default function EmployeesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editTarget, setEditTarget] = useState<Employee | null>(null)
   const [skillTarget, setSkillTarget] = useState<Employee | null>(null)
+  const [rulesTarget, setRulesTarget] = useState<Employee | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
+  const [passwordTarget, setPasswordTarget] = useState<Employee | null>(null)
+  const [createdInfo, setCreatedInfo] = useState<{ employeeNumber: number; lastName: string; firstName: string; initialPassword: string } | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('employeeNumber')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   const fetchEmployees = async () => {
     setLoading(true)
-    const res = await fetch('/api/employees')
-    const data = await res.json()
-    setEmployees(data)
-    setLoading(false)
+    try {
+      const res = await fetch('/api/employees')
+      if (res.redirected || !res.ok) {
+        // セッション切れでログイン画面にリダイレクトされた場合
+        if (res.url.includes('/login')) {
+          window.location.href = '/login'
+          return
+        }
+        setEmployees([])
+        return
+      }
+      const data = await res.json()
+      setEmployees(Array.isArray(data) ? data : [])
+    } catch {
+      setEmployees([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     fetchEmployees()
   }, [])
 
-  const filtered = employees.filter((emp) => {
-    if (activeTab !== 'ALL' && emp.primaryWorkplace !== activeTab) return false
-    if (search) {
-      const q = search.toLowerCase()
-      const name = `${emp.lastName}${emp.firstName}`.toLowerCase()
-      const romaji = `${emp.lastNameRomaji}${emp.firstNameRomaji}`.toLowerCase()
-      return name.includes(q) || romaji.includes(q) || emp.email.includes(q)
-    }
-    return true
-  })
+  const filtered = useMemo(() => {
+    const base = employees.filter((emp) => {
+      if (activeTab !== 'ALL' && emp.primaryWorkplace !== activeTab) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const name = `${emp.lastName}${emp.firstName}`.toLowerCase()
+        const romaji = `${emp.lastNameRomaji}${emp.firstNameRomaji}`.toLowerCase()
+        return name.includes(q) || romaji.includes(q) || String(emp.employeeNumber).includes(q)
+      }
+      return true
+    })
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`${name}さんを無効化しますか？`)) return
-    await fetch(`/api/employees/${id}`, { method: 'DELETE' })
-    fetchEmployees()
+    const compare = (a: Employee, b: Employee): number => {
+      switch (sortKey) {
+        case 'employeeNumber':
+          return a.employeeNumber - b.employeeNumber
+        case 'name': {
+          const an = `${a.lastNameRomaji}${a.firstNameRomaji}`.toLowerCase()
+          const bn = `${b.lastNameRomaji}${b.firstNameRomaji}`.toLowerCase()
+          return an.localeCompare(bn)
+        }
+        case 'workplace':
+          return (WORKPLACE_ORDER[a.primaryWorkplace] ?? 99) - (WORKPLACE_ORDER[b.primaryWorkplace] ?? 99)
+        case 'employmentType':
+          return (EMPLOYMENT_ORDER[a.employmentType] ?? 99) - (EMPLOYMENT_ORDER[b.employmentType] ?? 99)
+        case 'skillCount':
+          return a.skills.length - b.skills.length
+        case 'secondary':
+          return a.secondaryWorkplaces.length - b.secondaryWorkplaces.length
+        default:
+          return 0
+      }
+    }
+
+    return [...base].sort((a, b) => {
+      const v = compare(a, b)
+      // 同値なら社員番号で安定ソート
+      if (v === 0) return a.employeeNumber - b.employeeNumber
+      return sortDir === 'asc' ? v : -v
+    })
+  }, [employees, activeTab, search, sortKey, sortDir])
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ChevronsUpDown className="w-3 h-3 text-gray-300" />
+    return sortDir === 'asc' ? (
+      <ChevronUp className="w-3 h-3 text-[#0AB4CC]" />
+    ) : (
+      <ChevronDown className="w-3 h-3 text-[#0AB4CC]" />
+    )
   }
+
 
   return (
     <div>
@@ -124,7 +205,7 @@ export default function EmployeesPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
-          placeholder="名前・メールで検索..."
+          placeholder="名前・社員番号で検索..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0AB4CC]/20 focus:border-[#0AB4CC]"
@@ -139,12 +220,37 @@ export default function EmployeesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="text-left px-4 py-3 font-medium text-gray-500">No.</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">名前</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">勤務場所</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">雇用形態</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">スキル数</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">移動可能</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('employeeNumber')} className="flex items-center gap-1 hover:text-gray-900">
+                    No. <SortIcon column="employeeNumber" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-gray-900">
+                    名前 <SortIcon column="name" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('workplace')} className="flex items-center gap-1 hover:text-gray-900">
+                    勤務場所 <SortIcon column="workplace" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('employmentType')} className="flex items-center gap-1 hover:text-gray-900">
+                    雇用形態 <SortIcon column="employmentType" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">権限</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('skillCount')} className="flex items-center gap-1 hover:text-gray-900">
+                    スキル数 <SortIcon column="skillCount" />
+                  </button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">
+                  <button onClick={() => handleSort('secondary')} className="flex items-center gap-1 hover:text-gray-900">
+                    移動可能 <SortIcon column="secondary" />
+                  </button>
+                </th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500">操作</th>
               </tr>
             </thead>
@@ -177,6 +283,16 @@ export default function EmployeesPage() {
                         {EMPLOYMENT_LABELS[emp.employmentType]}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {emp.role === 'ADMIN' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                          <ShieldCheck className="w-3 h-3" />
+                          管理者
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">スタッフ</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{emp.skills.length}</td>
                     <td className="px-4 py-3">
                       {emp.secondaryWorkplaces.length > 0 ? (
@@ -200,16 +316,22 @@ export default function EmployeesPage() {
                           スキル
                         </button>
                         <button
+                          onClick={() => setRulesTarget(emp)}
+                          className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                        >
+                          ルール
+                        </button>
+                        <button
                           onClick={() => { setEditTarget(emp); setShowForm(true) }}
                           className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
                         >
                           編集
                         </button>
                         <button
-                          onClick={() => handleDelete(emp.id, `${emp.lastName}${emp.firstName}`)}
+                          onClick={() => setDeleteTarget(emp)}
                           className="text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600"
                         >
-                          無効化
+                          削除
                         </button>
                       </div>
                     </td>
@@ -218,7 +340,7 @@ export default function EmployeesPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
                     該当する従業員がいません
                   </td>
                 </tr>
@@ -232,8 +354,29 @@ export default function EmployeesPage() {
       {showForm && (
         <EmployeeFormModal
           employee={editTarget}
+          currentUserId={currentUserId}
           onClose={() => { setShowForm(false); setEditTarget(null) }}
           onSaved={fetchEmployees}
+          onResetPassword={editTarget ? () => {
+            const target = editTarget
+            setShowForm(false)
+            setEditTarget(null)
+            setPasswordTarget(target)
+          } : undefined}
+          onCreated={(initialPassword, emp) => {
+            setCreatedInfo({ ...emp, initialPassword })
+          }}
+        />
+      )}
+
+      {/* 登録完了 (初期パスワード表示) モーダル */}
+      {createdInfo && (
+        <EmployeeCreatedModal
+          employeeNumber={createdInfo.employeeNumber}
+          lastName={createdInfo.lastName}
+          firstName={createdInfo.firstName}
+          initialPassword={createdInfo.initialPassword}
+          onClose={() => setCreatedInfo(null)}
         />
       )}
 
@@ -243,6 +386,31 @@ export default function EmployeesPage() {
           employee={skillTarget}
           onClose={() => setSkillTarget(null)}
           onSaved={fetchEmployees}
+        />
+      )}
+
+      {/* ルール編集モーダル */}
+      {rulesTarget && (
+        <EmployeeRulesModal
+          employee={rulesTarget}
+          onClose={() => setRulesTarget(null)}
+        />
+      )}
+
+      {/* 削除確認モーダル */}
+      {deleteTarget && (
+        <EmployeeDeleteModal
+          employee={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={fetchEmployees}
+        />
+      )}
+
+      {/* パスワードリセットモーダル */}
+      {passwordTarget && (
+        <EmployeePasswordResetModal
+          employee={passwordTarget}
+          onClose={() => setPasswordTarget(null)}
         />
       )}
     </div>

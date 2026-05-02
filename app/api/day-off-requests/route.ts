@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { getFiscalMonthFromDate } from '@/lib/period-month'
 
 const createSchema = z.object({
   date: z.string(), // YYYY-MM-DD
@@ -61,6 +62,27 @@ export async function POST(req: NextRequest) {
   }
 
   const date = new Date(parsed.data.date)
+
+  // 締切チェック: 該当日が属する月度のRequestWindowを探し、deadlineを過ぎていれば拒否
+  const { fiscalYear, month } = getFiscalMonthFromDate(date)
+  const window = await prisma.requestWindow.findUnique({
+    where: { fiscalYear_month: { fiscalYear, month } },
+  })
+  // ADMIN は締切無視で作成可能 (代理申請)
+  if (session.user.role !== 'ADMIN') {
+    if (!window) {
+      return NextResponse.json(
+        { error: `${fiscalYear}年${month}月度の申請受付ウィンドウがまだ開設されていません` },
+        { status: 400 },
+      )
+    }
+    if (window.deadline.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { error: `${fiscalYear}年${month}月度の申請締切 (${window.deadline.toISOString()}) を過ぎています` },
+        { status: 400 },
+      )
+    }
+  }
 
   const request = await prisma.dayOffRequest.create({
     data: {

@@ -6,10 +6,9 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import Link from 'next/link'
 
 const schema = z.object({
-  email: z.string().email('正しいメールアドレスを入力してください'),
+  employeeNumber: z.string().regex(/^\d+$/, '社員番号は数字で入力してください').min(1, '社員番号を入力してください'),
   password: z.string().min(6, 'パスワードは6文字以上です'),
 })
 
@@ -28,13 +27,13 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     const res = await signIn('credentials', {
-      email: data.email,
+      employeeNumber: data.employeeNumber,
       password: data.password,
       redirect: false,
     })
     setLoading(false)
     if (res?.error) {
-      setError('メールアドレスまたはパスワードが正しくありません')
+      setError('社員番号またはパスワードが正しくありません')
     } else {
       router.push('/dashboard')
     }
@@ -67,13 +66,14 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <input
-              type="email"
-              placeholder="メールアドレス"
-              {...register('email')}
+              type="number"
+              inputMode="numeric"
+              placeholder="社員番号"
+              {...register('employeeNumber')}
               className="w-full h-10 px-3 text-sm border border-[#CCCCCC] rounded focus:outline-none focus:border-[#0AB4CC] focus:ring-1 focus:ring-[#0AB4CC] transition-colors placeholder:text-[#AAAAAA]"
             />
-            {errors.email && (
-              <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>
+            {errors.employeeNumber && (
+              <p className="text-xs text-red-500 mt-1">{errors.employeeNumber.message}</p>
             )}
           </div>
 
@@ -103,10 +103,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-[#888] mt-5">
-          アカウントをお持ちでない方は{' '}
-          <Link href="/signup" className="text-[#0AB4CC] hover:underline">
-            新規登録
-          </Link>
+          ログインできない方は管理者へお問い合わせください
         </p>
       </div>
     </div>
