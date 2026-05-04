@@ -116,7 +116,7 @@ export type CandidateOutput = {
   candidateIndex: number
   assignments: DayAssignment[]
   violations: string[] // 警告（SOFT違反、定数不足など）
-  hardViolations: string[] // 必須違反（5連勤、公休数、習熟度、小松、適性）
+  hardViolations: string[] // 必須違反（5連勤、公休数、習熟度、適性）
   score?: number // 優先条件スコア（高いほど良い）
 }
 

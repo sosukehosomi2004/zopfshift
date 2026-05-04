@@ -82,6 +82,7 @@ export default function ShiftPeriodDetailPage() {
   const [pendingRequests, setPendingRequests] = useState<{
     id: string; date: string; type: string; memo: string | null;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: string;
     employee: { id: string; lastName: string; firstName: string; primaryWorkplace: string }
   }[]>([])
   const [preAssignments, setPreAssignments] = useState<{
@@ -420,6 +421,9 @@ export default function ShiftPeriodDetailPage() {
                         </span>
                         {statusBadge}
                         {r.memo && <span className="text-xs text-gray-400">{r.memo}</span>}
+                        <span className="text-xs text-gray-400 ml-auto">
+                          申請: {new Date(r.createdAt).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                       <div className="flex gap-1">
                         {r.status !== 'APPROVED' && (
@@ -534,6 +538,9 @@ export default function ShiftPeriodDetailPage() {
                       {r.type === 'DAY_OFF' ? '公休' : '有休'}
                     </span>
                     {r.memo && <span className="text-xs text-gray-400">{r.memo}</span>}
+                    <span className="text-xs text-gray-400">
+                      申請: {new Date(r.createdAt).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                   <div className="flex gap-1">
                     <button

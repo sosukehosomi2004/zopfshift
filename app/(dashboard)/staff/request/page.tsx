@@ -13,11 +13,19 @@ type DayOffRequest = {
   memo?: string
 }
 
+type DayOverride = { capacity?: number; blocked?: boolean }
+type ConsecBlock = { startDate: string; endDate: string }
+
 type RequestWindow = {
   id: string
   fiscalYear: number
   month: number
   deadline: string
+  weekdayCapacity: number
+  holidayCapacity: number
+  dayOverrides: Record<string, DayOverride>
+  consecutiveBlocks: ConsecBlock[]
+  dayCounts: Record<string, number>
 }
 
 const TYPE_LABELS = { DAY_OFF: '公休', PAID_LEAVE: '有休' }
@@ -127,6 +135,20 @@ export default function StaffRequestPage() {
   const getRequestForDate = (date: Date) =>
     requests.find((r) => isSameDay(new Date(r.date), date))
 
+  // 該当日のキャパ・ブロック・満員などの状態を返す
+  const getDayState = (date: Date): { full: boolean; blocked: boolean; capacity: number; count: number } => {
+    if (!currentWindow) return { full: false, blocked: false, capacity: 0, count: 0 }
+    const dateStr = format(date, 'yyyy-MM-dd')
+    const ov = (currentWindow.dayOverrides ?? {})[dateStr]
+    if (ov?.blocked) return { full: false, blocked: true, capacity: 0, count: 0 }
+    const dow = date.getDay()
+    const isHol = dow === 0 || dow === 6 // 簡易: 祝日DBは別途取得が必要だが、weekend をhalflyで休日扱い
+    const baseCapacity = isHol ? currentWindow.holidayCapacity : currentWindow.weekdayCapacity
+    const capacity = ov?.capacity ?? baseCapacity
+    const count = (currentWindow.dayCounts ?? {})[dateStr] ?? 0
+    return { full: count >= capacity, blocked: false, capacity, count }
+  }
+
   const handleSubmit = async () => {
     if (!selectedDate) return
     setError('')
@@ -234,32 +256,45 @@ export default function StaffRequestPage() {
             const req = getRequestForDate(day)
             const dayOfWeek = getDay(day)
             const isSelected = selectedDate && isSameDay(day, selectedDate)
+            const state = getDayState(day)
+            const unavailable = state.blocked || state.full
+            const clickable = !req && !isClosed && !unavailable
 
             return (
               <button
                 key={day.toISOString()}
-                onClick={() => !req && !isClosed && setSelectedDate(day)}
-                disabled={isClosed || !!req}
+                onClick={() => clickable && setSelectedDate(day)}
+                disabled={!clickable}
                 className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-colors ${
                   isSelected
                     ? 'bg-[#0AB4CC] text-white'
                     : req
                       ? 'cursor-default'
-                      : isClosed
-                        ? 'cursor-not-allowed'
-                        : 'hover:bg-gray-50'
-                } ${dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-gray-700'}`}
+                      : state.blocked
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : state.full
+                          ? 'bg-red-100 text-red-400 cursor-not-allowed'
+                          : isClosed
+                            ? 'cursor-not-allowed'
+                            : 'hover:bg-gray-50'
+                } ${dayOfWeek === 0 && !unavailable && !req ? 'text-red-500' : ''} ${dayOfWeek === 6 && !unavailable && !req ? 'text-blue-500' : ''}`}
               >
                 <span className={isSelected ? 'text-white' : ''}>
                   {format(day, 'M/d')}
                 </span>
-                {req && (
+                {req ? (
                   <span className={`text-[10px] px-1 rounded mt-0.5 ${
                     req.type === 'DAY_OFF' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
                   }`}>
                     {TYPE_LABELS[req.type]}
                   </span>
-                )}
+                ) : state.blocked ? (
+                  <span className="text-[9px] mt-0.5">不可</span>
+                ) : state.full ? (
+                  <span className="text-[9px] mt-0.5">満員</span>
+                ) : state.capacity > 0 ? (
+                  <span className="text-[9px] text-gray-400 mt-0.5">{state.count}/{state.capacity}</span>
+                ) : null}
               </button>
             )
           })}

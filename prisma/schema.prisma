@@ -21,6 +21,7 @@ model Employee {
   primaryWorkplace Workplace
   floorProficiency Proficiency?  // フロアで働ける従業員のフロア習熟度
   isActive        Boolean        @default(true)
+  retiredAt       DateTime?      @db.Date  // 退職日 (この日まで勤務、翌日からシフト対象外)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -235,12 +236,18 @@ enum RequestStatus {
 // シフト期間 (ShiftPeriod) とは独立した、休み申請の受付窓口管理。
 // 「2026年6月度の申請を 4/30 まで受け付ける」のような運用をサポート。
 model RequestWindow {
-  id         String   @id @default(cuid())
-  fiscalYear Int
-  month      Int      // 1-12 (label の月、例: 6 → 6月度 = 5/21~6/20)
-  deadline   DateTime // 申請期限 (日時、例: 2026-04-30 23:59)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id              String   @id @default(cuid())
+  fiscalYear      Int
+  month           Int      // 1-12 (label の月、例: 6 → 6月度 = 5/21~6/20)
+  deadline        DateTime // 申請期限 (日時、例: 2026-04-30 23:59)
+  weekdayCapacity Int      @default(5)  // 平日の上限 (人数)
+  holidayCapacity Int      @default(10) // 休日 (土日祝) の上限
+  // 日別の上書き: { "YYYY-MM-DD": { capacity?: number; blocked?: boolean } }
+  dayOverrides    Json     @default("{}")
+  // 連続禁止範囲: [{ startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD" }]
+  consecutiveBlocks Json   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([fiscalYear, month])
 }

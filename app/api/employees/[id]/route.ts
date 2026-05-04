@@ -14,6 +14,7 @@ const updateEmployeeSchema = z.object({
   availableShiftTimes: z.array(z.enum(['EARLY', 'DAYTIME', 'CLOSE'])).optional(),
   isActive: z.boolean().optional(),
   role: z.enum(['ADMIN', 'STAFF']).optional(),
+  retiredAt: z.string().nullable().optional(), // YYYY-MM-DD or null
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -89,7 +90,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { secondaryWorkplaces: _, availableShiftTimes: __, ...updateData } = data
+  const { secondaryWorkplaces: _, availableShiftTimes: __, retiredAt, ...rest } = data
+  const updateData: Record<string, unknown> = { ...rest }
+  if (retiredAt !== undefined) {
+    updateData.retiredAt = retiredAt ? new Date(retiredAt) : null
+  }
 
   const employee = await prisma.employee.update({
     where: { id },

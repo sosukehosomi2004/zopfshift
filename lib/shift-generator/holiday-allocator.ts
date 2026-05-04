@@ -1,6 +1,5 @@
 import { DateInfo, DayOffInput, EmployeeInput, StaffingRuleInput, SlotInput, PreAssignmentInput } from './types'
 import { shuffle } from './utils'
-import { KOMATSU_LINE_LASTNAMES, KOMATSU_LINE_MIN_WORKING } from './constraints'
 
 /**
  * 公休割当（CSPソルバー）
@@ -33,11 +32,83 @@ export function allocateHolidays(
   const empCount = employees.length
 
   // 各日の休み人数を決定
-  // - allowUnderstaffing=true（カフェ・フロア）: 公休8日優先で配分（定数割れOK、移動で補填）
+  // - allowUnderstaffing=true（カフェ・フロア）: 需要の高い日（=休日等）には休みを少なく配分する。
+  //   こうすることでプライマリ従業員が高需要日に出勤しやすくなり、移動補填の負担と SOFT 違反が減る。
   // - allowUnderstaffing=false（工場）: empCount - required で配分（定数ぴったり、公休は超過OK）
+  // ただし、プライマリの絶対数が少ない（surplus が小さい）勤務場所に demand-aware を適用すると、
+  // 平日に休みが集中してスロット違反が増えるため、十分な余裕がある場合のみ適用する。
   const restPerDay = new Array(totalDays).fill(0)
+  const wp0 = employees[0]?.primaryWorkplace
+  // 有休数: 有休は schedule=false にするが公休にカウントしないため、公休枠を別途確保する必要あり。
+  // needRest = (公休 × 従業員数) + 有休数 で総 rest 枠を計算する。
+  const totalPaidLeaves = (() => {
+    const empSet = new Set(employees.map((e) => e.id))
+    return dayOffs.filter((d) => d.type === 'PAID_LEAVE' && empSet.has(d.employeeId)).length
+  })()
+  const needRestTotal = empCount * requiredHolidayCount + totalPaidLeaves
+  // demand-aware の適用条件: 「surplusだけで needRest を賄える」場合に限る。
+  // surplus < needRest なら deficit を低需要日に追加配分することになるが、それは
+  // 結局スロットが埋まらない日が増えてしまうため一様分配にフォールバックする。
+  let useDemandAware = false
   if (allowUnderstaffing) {
-    const totalRestSlots = empCount * requiredHolidayCount
+    let totalDailySurplus = 0
+    for (let d = 0; d < totalDays; d++) {
+      const rule = staffingRules.find((r) => r.workplace === wp0 && r.dayType === dateInfos[d].dayType)
+      totalDailySurplus += Math.max(0, empCount - (rule?.requiredCount ?? empCount))
+    }
+    useDemandAware = totalDailySurplus >= needRestTotal
+  }
+  if (allowUnderstaffing && useDemandAware) {
+    // 各日の「定数を満たすのに余る人数」 = 自然な休み枠
+    const wp = employees[0]?.primaryWorkplace
+    const surplusPerDay = new Array(totalDays).fill(0)
+    for (let d = 0; d < totalDays; d++) {
+      const rule = staffingRules.find((r) => r.workplace === wp && r.dayType === dateInfos[d].dayType)
+      surplusPerDay[d] = Math.max(0, empCount - (rule?.requiredCount ?? empCount))
+    }
+    const totalSurplus = surplusPerDay.reduce((a, b) => a + b, 0)
+    const needRest = needRestTotal
+
+    if (totalSurplus >= needRest && totalSurplus > 0) {
+      // surplus を縮小して needRest 分だけ配分（高需要日ほど少なくなる）
+      let assigned = 0
+      for (let d = 0; d < totalDays; d++) {
+        restPerDay[d] = Math.floor((surplusPerDay[d] * needRest) / totalSurplus)
+        assigned += restPerDay[d]
+      }
+      // 端数の補填: surplus が大きい日から1ずつ追加
+      const order = surplusPerDay
+        .map((s, i) => ({ s, i }))
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.i)
+      let leftover = needRest - assigned
+      let idx = 0
+      while (leftover > 0 && idx < order.length) {
+        if (restPerDay[order[idx]] < surplusPerDay[order[idx]]) {
+          restPerDay[order[idx]]++
+          leftover--
+        }
+        idx++
+        if (idx >= order.length) idx = 0 // 二周目以降は上限超えてもOKで埋める
+      }
+    } else {
+      // surplus < needRest: 全余剰を埋め、残りは低需要日（surplus大）から追加
+      for (let d = 0; d < totalDays; d++) restPerDay[d] = surplusPerDay[d]
+      let deficit = needRest - totalSurplus
+      const order = surplusPerDay
+        .map((s, i) => ({ s, i }))
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.i)
+      let idx = 0
+      while (deficit > 0) {
+        restPerDay[order[idx]]++
+        deficit--
+        idx = (idx + 1) % order.length
+      }
+    }
+  } else if (allowUnderstaffing) {
+    // demand-aware を使わない場合: 一様分配（既存挙動）
+    const totalRestSlots = needRestTotal
     const baseRest = Math.floor(totalRestSlots / totalDays)
     const extraRest = totalRestSlots - baseRest * totalDays
     for (let d = 0; d < totalDays; d++) {
@@ -102,7 +173,11 @@ export function allocateHolidays(
         // 休み確定
         schedule[empIdx][dayIdx] = false
         lockedRestCells.add(key)
-        remainingHolidays[empIdx]--
+        // 同じ日が既に有休として処理されていたら、remainingHolidays は減らさない
+        // (有休は公休最低数のカウント対象外なので、二重に休み扱いすると公休不足になる)
+        if (!paidLeaveSet.get(empIdx)?.has(dayIdx)) {
+          remainingHolidays[empIdx]--
+        }
       } else {
         // 出勤確定
         schedule[empIdx][dayIdx] = true
@@ -110,10 +185,6 @@ export function allocateHolidays(
       }
     }
   }
-
-  // 小松ラインの最大休み数 = 5 - 3 = 2人まで
-  const KOMATSU_MAX_REST = KOMATSU_LINE_LASTNAMES.length - KOMATSU_LINE_MIN_WORKING
-  const isFactoryWorkplace = employees[0]?.primaryWorkplace === 'FACTORY'
 
   // 日ごとに休む人を決める
   for (let dayIdx = 0; dayIdx < totalDays; dayIdx++) {
@@ -150,16 +221,6 @@ export function allocateHolidays(
     const workingEmps = []
     for (let i = 0; i < empCount; i++) {
       if (schedule[i][dayIdx] && !lockedWorkCells.has(`${i}-${dayIdx}`)) workingEmps.push(i)
-    }
-
-    // この日に既に休んでいる小松ラインの人数（動的に更新）
-    let mainStaffRestingToday = 0
-    if (isFactoryWorkplace) {
-      for (let i = 0; i < empCount; i++) {
-        if (!schedule[i][dayIdx] && KOMATSU_LINE_LASTNAMES.includes(employees[i].lastName)) {
-          mainStaffRestingToday++
-        }
-      }
     }
 
     // 各候補にスコアをつけてソート（休ませるべき人を上位に）
@@ -229,26 +290,31 @@ export function allocateHolidays(
     for (const empIdx of orderedCandidates) {
       if (filled >= remainingSlots) break
 
-      const isMainStaff = isFactoryWorkplace && KOMATSU_LINE_LASTNAMES.includes(employees[empIdx].lastName)
-
-      // 小松ライン: メインスタッフを休ませる前に、上限チェック
-      if (isMainStaff && mainStaffRestingToday >= KOMATSU_MAX_REST) {
-        continue
-      }
-
       // 仮に休ませる
       schedule[empIdx][dayIdx] = false
 
       // スキル制約: 残りの出勤者でポジションが埋まるか（allowUnderstaffingではスキップ）
+      // 注: allowUnderstaffing=true (cafe/floor) のスロット保証は移動補填後の
+      //     reassignSlots で再評価されるためここではスキップする
       if (!allowUnderstaffing && slots && !canCoverSlots(schedule, dayIdx, employees, dateInfos[dayIdx], slots)) {
         schedule[empIdx][dayIdx] = true // 戻す
+        continue
+      }
+
+      // カフェ習熟度チェック: ▲がいる日は◎も必要 (HARD制約を allocator で前方チェック)
+      if (!checkCafeProficiencyAfterRest(schedule, dayIdx, employees)) {
+        schedule[empIdx][dayIdx] = true
+        continue
+      }
+      // フロア習熟度チェック: ▲は最大2名 (休ませた結果は変わらないので、出勤数の変化のみ確認)
+      if (!checkFloorProficiencyAfterRest(schedule, dayIdx, employees)) {
+        schedule[empIdx][dayIdx] = true
         continue
       }
 
       toRest.push(empIdx)
       remainingHolidays[empIdx]--
       filled++
-      if (isMainStaff) mainStaffRestingToday++
     }
 
     // 連続カウンター更新
@@ -281,22 +347,11 @@ export function allocateHolidays(
           const plE = paidLeaveSet.get(empIdx) ?? new Set()
           const plO = paidLeaveSet.get(otherIdx) ?? new Set()
 
-          // 小松ラインチェック（工場主勤務の場合）
-          let komatsuOk = true
-          if (isFactoryWorkplace) {
-            let mainResting = 0
-            for (let i = 0; i < empCount; i++) {
-              if (!schedule[i][d] && KOMATSU_LINE_LASTNAMES.includes(employees[i].lastName)) {
-                mainResting++
-              }
-            }
-            if (mainResting > KOMATSU_MAX_REST) komatsuOk = false
-          }
-
-          if (komatsuOk &&
-              checkConsecutive(schedule[empIdx], plE, maxConsecutive) &&
+          if (checkConsecutive(schedule[empIdx], plE, maxConsecutive) &&
               checkConsecutive(schedule[otherIdx], plO, maxConsecutive) &&
-              (allowUnderstaffing || !slots || canCoverSlots(schedule, d, employees, dateInfos[d], slots))) {
+              (allowUnderstaffing || !slots || canCoverSlots(schedule, d, employees, dateInfos[d], slots)) &&
+              checkCafeProficiencyAfterRest(schedule, d, employees) &&
+              checkFloorProficiencyAfterRest(schedule, d, employees)) {
             swapped = true
             deficit--
             break
@@ -436,4 +491,45 @@ function backtrackSlots(requiredSlots: SlotInput[], workers: EmployeeInput[]): b
     return false
   }
   return solve(0)
+}
+
+/**
+ * カフェ習熟度の前方チェック: 出勤者の中に LOW 持ちがいるなら HIGH 持ちも必須
+ * employees[0].primaryWorkplace !== 'CAFE' なら常に true
+ */
+function checkCafeProficiencyAfterRest(
+  schedule: boolean[][],
+  dayIdx: number,
+  employees: EmployeeInput[],
+): boolean {
+  if (employees[0]?.primaryWorkplace !== 'CAFE') return true
+  let hasLow = false
+  let hasHigh = false
+  for (let i = 0; i < employees.length; i++) {
+    if (!schedule[i][dayIdx]) continue
+    const emp = employees[i]
+    if (!emp.skillsWithProficiency) continue
+    for (const sk of emp.skillsWithProficiency) {
+      if (sk.proficiency === 'LOW') hasLow = true
+      if (sk.proficiency === 'HIGH') hasHigh = true
+    }
+  }
+  return !(hasLow && !hasHigh)
+}
+
+/**
+ * フロア習熟度の前方チェック: ▲(LOW) は最大2名
+ */
+function checkFloorProficiencyAfterRest(
+  schedule: boolean[][],
+  dayIdx: number,
+  employees: EmployeeInput[],
+): boolean {
+  if (employees[0]?.primaryWorkplace !== 'FLOOR') return true
+  let lowCount = 0
+  for (let i = 0; i < employees.length; i++) {
+    if (!schedule[i][dayIdx]) continue
+    if (employees[i].floorProficiency === 'LOW') lowCount++
+  }
+  return lowCount <= 2
 }

@@ -1,13 +1,21 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Trash2, Calendar, Clock } from 'lucide-react'
+import { Plus, Trash2, Calendar, Clock, Settings } from 'lucide-react'
+import { RequestWindowEditModal } from './RequestWindowEditModal'
+
+type DayOverride = { capacity?: number; blocked?: boolean }
+type ConsecBlock = { startDate: string; endDate: string }
 
 type RequestWindow = {
   id: string
   fiscalYear: number
   month: number
   deadline: string // ISO datetime
+  weekdayCapacity: number
+  holidayCapacity: number
+  dayOverrides: Record<string, DayOverride>
+  consecutiveBlocks: ConsecBlock[]
 }
 
 function fmtDeadline(iso: string): string {
@@ -34,6 +42,7 @@ export function RequestWindowManager() {
   const [windows, setWindows] = useState<RequestWindow[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [editTarget, setEditTarget] = useState<RequestWindow | null>(null)
 
   const now = new Date()
   // デフォルト: 翌月度
@@ -193,6 +202,13 @@ export function RequestWindowManager() {
               </div>
               <div className="flex gap-1">
                 <button
+                  onClick={() => setEditTarget(w)}
+                  className="text-xs px-2 py-1 rounded bg-white border hover:bg-gray-100 text-gray-600 inline-flex items-center gap-1"
+                >
+                  <Settings className="w-3 h-3" />
+                  制限設定
+                </button>
+                <button
                   onClick={() => handleUpdateDeadline(w.id, w.deadline)}
                   className="text-xs px-2 py-1 rounded bg-white border hover:bg-gray-100 text-gray-600"
                 >
@@ -209,6 +225,14 @@ export function RequestWindowManager() {
             </div>
           ))}
         </div>
+      )}
+
+      {editTarget && (
+        <RequestWindowEditModal
+          window={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={fetchWindows}
+        />
       )}
     </section>
   )

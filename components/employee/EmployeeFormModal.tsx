@@ -12,6 +12,7 @@ type Employee = {
   employmentType: string
   primaryWorkplace: string
   role?: string
+  retiredAt?: string | null
   secondaryWorkplaces: { workplace: string }[]
   availableShiftTimes: { timeSlot: string }[]
 }
@@ -48,6 +49,7 @@ export function EmployeeFormModal({ employee, onClose, onSaved, onResetPassword,
   const [lastNameRomaji, setLastNameRomaji] = useState(employee?.lastNameRomaji ?? '')
   const [firstNameRomaji, setFirstNameRomaji] = useState(employee?.firstNameRomaji ?? '')
   const [role, setRole] = useState<'ADMIN' | 'STAFF'>((employee?.role as 'ADMIN' | 'STAFF') ?? 'STAFF')
+  const [retiredAt, setRetiredAt] = useState<string>(employee?.retiredAt ? employee.retiredAt.split('T')[0] : '')
   const [employmentType, setEmploymentType] = useState(employee?.employmentType ?? 'FULL_TIME')
   const [primaryWorkplace, setPrimaryWorkplace] = useState(employee?.primaryWorkplace ?? 'FACTORY')
   const [secondaryWorkplaces, setSecondaryWorkplaces] = useState<string[]>(
@@ -84,6 +86,7 @@ export function EmployeeFormModal({ employee, onClose, onSaved, onResetPassword,
       employmentType,
       primaryWorkplace,
       role,
+      retiredAt: retiredAt || null,
       secondaryWorkplaces: secondaryWorkplaces.filter((w) => w !== primaryWorkplace),
       availableShiftTimes: employmentType === 'PART_TIME' ? availableShiftTimes : undefined,
     }
@@ -205,6 +208,33 @@ export function EmployeeFormModal({ employee, onClose, onSaved, onResetPassword,
               <p className="text-xs text-amber-600 mt-1">⚠ 自分自身の管理者権限は外せません (ロックアウト防止)</p>
             )}
           </div>
+
+          {/* 退職日 */}
+          {isEdit && (
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">退職日 (任意)</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="date"
+                  value={retiredAt}
+                  onChange={(e) => setRetiredAt(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm"
+                />
+                {retiredAt && (
+                  <button
+                    type="button"
+                    onClick={() => setRetiredAt('')}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                指定日までは通常勤務、翌日以降のシフト生成対象から外れます
+              </p>
+            </div>
+          )}
 
           {/* 基本勤務場所 */}
           <div>

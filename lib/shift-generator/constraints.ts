@@ -1,9 +1,5 @@
 import { DayAssignment, DateInfo, EmployeeInput, StaffingRuleInput, SlotInput, DayOffInput, SkillInput } from './types'
 
-// 工場メインスタッフ（小松ライン）の名字リスト
-export const KOMATSU_LINE_LASTNAMES = ['上田', '篠原', '伊藤', '福永', '小松']
-export const KOMATSU_LINE_MIN_WORKING = 3
-
 /**
  * 連続勤務日数チェック
  * 有休日は連続勤務をリセットする
@@ -230,37 +226,6 @@ export function checkFloorProficiency(
 
   if (lowCount > maxLow) {
     violations.push(`${date} FLOOR: ▲の従業員が${lowCount}名（上限${maxLow}名）`)
-  }
-
-  return violations
-}
-
-/**
- * 小松ラインチェック
- * 工場メインスタッフ5名（上田・篠原・伊藤・福永・小松）のうち、最低3名は工場で働く必要がある
- */
-export function checkKomatsuLine(
-  date: string,
-  assignments: DayAssignment[],
-  employees: EmployeeInput[],
-): string[] {
-  const violations: string[] = []
-  const empMap = new Map(employees.map((e) => [e.id, e]))
-
-  // 工場で働いているメインスタッフをカウント
-  let mainCount = 0
-  for (const a of assignments) {
-    if (a.date !== date) continue
-    if (a.workplace !== 'FACTORY') continue
-    const emp = empMap.get(a.employeeId)
-    if (!emp) continue
-    if (KOMATSU_LINE_LASTNAMES.includes(emp.lastName)) {
-      mainCount++
-    }
-  }
-
-  if (mainCount < KOMATSU_LINE_MIN_WORKING) {
-    violations.push(`${date} FACTORY: 小松ライン${mainCount}名（最低${KOMATSU_LINE_MIN_WORKING}名）`)
   }
 
   return violations

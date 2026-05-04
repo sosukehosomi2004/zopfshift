@@ -7,6 +7,16 @@ type Params = { params: Promise<{ id: string }> }
 
 const patchSchema = z.object({
   deadline: z.string().optional(),
+  weekdayCapacity: z.number().int().min(0).max(99).optional(),
+  holidayCapacity: z.number().int().min(0).max(99).optional(),
+  dayOverrides: z.record(z.string(), z.object({
+    capacity: z.number().int().min(0).max(99).optional(),
+    blocked: z.boolean().optional(),
+  })).optional(),
+  consecutiveBlocks: z.array(z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  })).optional(),
 })
 
 // PATCH /api/request-windows/[id] - 締切更新
@@ -21,10 +31,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
-  const updated = await prisma.requestWindow.update({
-    where: { id },
-    data: parsed.data.deadline ? { deadline: new Date(parsed.data.deadline) } : {},
-  })
+  const data = parsed.data
+  const updateData: Record<string, unknown> = {}
+  if (data.deadline) updateData.deadline = new Date(data.deadline)
+  if (data.weekdayCapacity !== undefined) updateData.weekdayCapacity = data.weekdayCapacity
+  if (data.holidayCapacity !== undefined) updateData.holidayCapacity = data.holidayCapacity
+  if (data.dayOverrides !== undefined) updateData.dayOverrides = data.dayOverrides
+  if (data.consecutiveBlocks !== undefined) updateData.consecutiveBlocks = data.consecutiveBlocks
+  const updated = await prisma.requestWindow.update({ where: { id }, data: updateData })
   return NextResponse.json(updated)
 }
 

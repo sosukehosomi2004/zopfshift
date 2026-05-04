@@ -45,3 +45,19 @@ export function getMonthLabel(fiscalYear: number, month: number): string {
 export function parseISODate(s: string): Date {
   return new Date(s + 'T00:00:00')
 }
+
+/**
+ * 月度の標準締切を計算
+ * 例: 5月度 (4/21〜5/20) → 締切は 3/20 23:59:59
+ *     1月度 (12/21〜1/20) → 締切は 11/20 23:59:59 (前年)
+ * ルール: 月度 M → (M-2)月20日 23:59:59
+ */
+export function computeDefaultDeadline(fiscalYear: number, month: number): Date {
+  let dlMonth = month - 2
+  let dlYear = fiscalYear
+  if (dlMonth <= 0) {
+    dlMonth += 12
+    dlYear -= 1
+  }
+  return new Date(`${dlYear}-${String(dlMonth).padStart(2, '0')}-20T23:59:59`)
+}

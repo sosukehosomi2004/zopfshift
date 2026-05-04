@@ -67,10 +67,6 @@ export function RulesOverview() {
                 <td className="px-3 py-2 text-gray-600">基本勤務地 + 移動可能勤務地のみ配置可</td>
               </tr>
               <tr className="border-b border-red-100">
-                <td className="px-3 py-2 font-medium text-gray-700">工場 小松ライン</td>
-                <td className="px-3 py-2 text-gray-600">主要5名 (上田・篠原・伊藤・福永・小松) のうち最低3名は工場勤務</td>
-              </tr>
-              <tr className="border-b border-red-100">
                 <td className="px-3 py-2 font-medium text-gray-700">カフェ 習熟度</td>
                 <td className="px-3 py-2 text-gray-600">▲(低) のスタッフがいる日は◎(高) のスタッフも必須</td>
               </tr>

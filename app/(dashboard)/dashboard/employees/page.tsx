@@ -27,6 +27,7 @@ type Employee = {
   employmentType: string
   primaryWorkplace: string
   isActive: boolean
+  retiredAt: string | null
   floorProficiency: 'LOW' | 'MID' | 'HIGH' | null
   secondaryWorkplaces: { workplace: string }[]
   availableShiftTimes: { timeSlot: string }[]
@@ -261,8 +262,19 @@ export default function EmployeesPage() {
                   <tr key={emp.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="px-4 py-3 text-gray-400">{emp.employeeNumber}</td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-gray-900 inline-flex items-center gap-2 flex-wrap">
                         {emp.lastName} {emp.firstName}
+                        {emp.retiredAt && (() => {
+                          const retired = new Date(emp.retiredAt.split('T')[0] + 'T23:59:59')
+                          const isPast = retired.getTime() < Date.now()
+                          return (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                              isPast ? 'bg-gray-200 text-gray-600' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {isPast ? '退職済' : '退職予定'} {emp.retiredAt.split('T')[0]}
+                            </span>
+                          )
+                        })()}
                       </div>
                       <div className="text-xs text-gray-400">
                         {emp.lastNameRomaji} {emp.firstNameRomaji}

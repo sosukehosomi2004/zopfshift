@@ -2,8 +2,11 @@ import { GeneratorInput, GeneratorOutput, CandidateOutput } from './types'
 import { buildDateInfos } from './utils'
 import { allocateHolidays } from './holiday-allocator'
 import { assignSlots } from './slot-assigner'
-import { checkConsecutiveWorkDays, checkHolidayCount, checkStaffingCounts, checkSlotCoverage, checkCafeProficiency, checkFloorProficiency, checkKomatsuLine } from './constraints'
+import { checkConsecutiveWorkDays, checkHolidayCount, checkStaffingCounts, checkSlotCoverage, checkCafeProficiency, checkFloorProficiency } from './constraints'
 import { scoreConsecutiveOffDays } from './scorer'
+import { checkFeasibility } from './feasibility'
+
+export { checkFeasibility } from './feasibility'
 
 const MAX_CONSECUTIVE = 5
 const DEFAULT_MAX_ATTEMPTS = 1500
@@ -24,6 +27,16 @@ export function generateShiftCandidates(input: GeneratorInput): GeneratorOutput 
   }
   if (dateInfos.length === 0) {
     return { candidates: [], errors: ['シフト期間が不正です'] }
+  }
+
+  // 構造的不能を事前検出（致命的なら即失敗）
+  const feasibility = checkFeasibility(input)
+  const fatal = feasibility.filter((f) => f.severity === 'fatal')
+  if (fatal.length > 0) {
+    return {
+      candidates: [],
+      errors: fatal.map((f) => `[構造的不能] ${f.message}`),
+    }
   }
 
   const allValidCandidates: CandidateOutput[] = []
@@ -118,10 +131,6 @@ function generateOneCandidate(
     }
     if (workplace === 'FLOOR') {
       hardViolations.push(...checkFloorProficiency(di.date, assignments, employees))
-    }
-    // 小松ラインはHARD
-    if (workplace === 'FACTORY') {
-      hardViolations.push(...checkKomatsuLine(di.date, assignments, employees))
     }
   }
 

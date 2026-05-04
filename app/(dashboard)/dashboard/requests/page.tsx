@@ -12,6 +12,7 @@ type DayOffRequest = {
   type: 'DAY_OFF' | 'PAID_LEAVE'
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   memo?: string
+  createdAt: string
   employee: {
     id: string
     lastName: string
@@ -192,6 +193,7 @@ export default function RequestsPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500">種別</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">ステータス</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">メモ</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">申請日時</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500">操作</th>
               </tr>
             </thead>
@@ -218,6 +220,9 @@ export default function RequestsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">{r.memo || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                    {format(new Date(r.createdAt), 'yyyy/MM/dd HH:mm')}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-1 justify-end">
                       {r.status !== 'APPROVED' && (
@@ -250,7 +255,7 @@ export default function RequestsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
                     該当する申請がありません
                   </td>
                 </tr>
