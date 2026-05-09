@@ -10,6 +10,7 @@ type Assignment = {
   slotName: string | null
   slotNumber: number | null
   memo?: string | null
+  color?: string | null
   employee: {
     id: string
     employeeNumber: number
@@ -38,7 +39,18 @@ type Props = {
   preAssignedKeys?: Set<string> // `${empId}-${date}` の事前確定セル
   editable?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
-  onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null; clear?: boolean }) => void | Promise<void>
+  onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null; color: string | null; clear?: boolean }) => void | Promise<void>
+}
+
+// プリセットカラー (任意塗り潰し): キー → Tailwind bg クラス
+// 勤務場所色（青系=工場 / 黄=カフェ / 緑=フロア / 赤=L）と被らないよう除外
+export const CELL_COLOR_PRESETS: Record<string, string> = {
+  orange: 'bg-orange-500',
+  amber: 'bg-amber-600',
+  fuchsia: 'bg-fuchsia-500',
+  pink: 'bg-pink-500',
+  indigo: 'bg-indigo-500',
+  slate: 'bg-slate-500',
 }
 
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土']
@@ -47,25 +59,28 @@ const WORKPLACE_LABEL: Record<string, string> = {
   FACTORY: '工場',
   CAFE: 'カフェ',
   FLOOR: 'フロア',
+  L: 'L',
   OFFICE: '事務',
-  OTHER: 'その他',
+  OTHER: '出勤',
 }
 
+// 勤務場所色 (薄めのパステル: -100〜-200 を基本)
 const CELL_COLOR_BY_WORKPLACE: Record<string, string> = {
   FACTORY: 'bg-[#0AB4CC]/15',
   CAFE: 'bg-yellow-200',
-  FLOOR: 'bg-red-200',
+  FLOOR: 'bg-green-200',
+  L: 'bg-red-200',
   OFFICE: 'bg-purple-100',
-  OTHER: 'bg-green-100',
+  OTHER: 'bg-stone-200',
 }
 
-// 凡例用の塗り
 const LEGEND_COLOR: Record<string, string> = {
   FACTORY: 'bg-[#0AB4CC]/30 border-[#0AB4CC]',
   CAFE: 'bg-yellow-200 border-yellow-400',
-  FLOOR: 'bg-red-200 border-red-400',
+  FLOOR: 'bg-green-200 border-green-400',
+  L: 'bg-red-200 border-red-400',
   OFFICE: 'bg-purple-100 border-purple-300',
-  OTHER: 'bg-green-100 border-green-300',
+  OTHER: 'bg-stone-200 border-stone-400',
 }
 
 function parseDate(s: string): Date {
@@ -170,19 +185,38 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     return { cells: v, byEmp: empViolations }
   }, [allEmployees, dates, assignmentMap])
 
-  const sections: Array<{ workplace: string; employees: Employee[] }> = ['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'].map((wp) => ({
-    workplace: wp,
-    employees: allEmployees.filter((e) => e.primaryWorkplace === wp),
-  })).filter((s) => s.employees.length > 0)
+  // 各勤務場所セクションは primary 従業員行と、移動者用の匿名スロット行で構成。
+  //   maxMovedIn: 期間中の任意の日でこの勤務場所への移動者最大数
+  //   movedInPerDay: 日付 → その日の移動者数 (誰が来たかは保持しない)
+  const sections: Array<{
+    workplace: string
+    employees: Employee[]
+    maxMovedIn: number
+    movedInPerDay: Map<string, number>
+  }> = ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER'].map((wp) => {
+    const primary = allEmployees.filter((e) => e.primaryWorkplace === wp)
+    const movedInPerDay = new Map<string, number>()
+    for (const a of assignments) {
+      if (a.workplace !== wp) continue
+      if (a.employee.primaryWorkplace === wp) continue
+      const d = a.date.split('T')[0]
+      movedInPerDay.set(d, (movedInPerDay.get(d) ?? 0) + 1)
+    }
+    let maxMovedIn = 0
+    for (const v of Array.from(movedInPerDay.values())) {
+      if (v > maxMovedIn) maxMovedIn = v
+    }
+    return { workplace: wp, employees: primary, maxMovedIn, movedInPerDay }
+  }).filter((s) => s.employees.length > 0 || s.maxMovedIn > 0)
 
   const handleCellClick = (employeeId: string, date: string, primaryWorkplace: string) => {
     if (!editable) return
     setEditingCell({ employeeId, date, primaryWorkplace })
   }
 
-  const handleEdit = async (workplace: string | null, memo: string | null, clear?: boolean) => {
+  const handleEdit = async (workplace: string | null, memo: string | null, color: string | null, clear?: boolean) => {
     if (!editingCell || !onEdit) return
-    await onEdit({ employeeId: editingCell.employeeId, date: editingCell.date, workplace, memo, clear })
+    await onEdit({ employeeId: editingCell.employeeId, date: editingCell.date, workplace, memo, color, clear })
     setEditingCell(null)
   }
 
@@ -199,7 +233,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
       {/* 凡例 */}
       <div className="flex flex-wrap gap-3 items-center text-xs">
         <span className="text-gray-500 font-medium">凡例:</span>
-        {['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'].map((wp) => (
+        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => (
           <span key={wp} className="flex items-center gap-1.5">
             <span className={`inline-block w-4 h-4 rounded border ${LEGEND_COLOR[wp]}`} />
             <span className="text-gray-700">{WORKPLACE_LABEL[wp]}</span>
@@ -217,6 +251,8 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
             key={section.workplace}
             workplace={section.workplace}
             employees={section.employees}
+            maxMovedIn={section.maxMovedIn}
+            movedInPerDay={section.movedInPerDay}
             dates={dates}
             monthGroups={monthGroups}
             assignmentMap={assignmentMap}
@@ -235,6 +271,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
           date={editingCell.date}
           currentWorkplace={editingAssignment?.workplace ?? null}
           currentMemo={editingAssignment?.memo ?? null}
+          currentColor={editingAssignment?.color ?? null}
           primaryWorkplace={editingCell.primaryWorkplace}
           isPreAssigned={editingIsPreAssigned}
           onSave={handleEdit}
@@ -248,6 +285,8 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
 type WorkplaceTableProps = {
   workplace: string
   employees: Employee[]
+  maxMovedIn: number
+  movedInPerDay: Map<string, number>
   dates: Date[]
   monthGroups: { month: string; count: number }[]
   assignmentMap: Map<string, Assignment>
@@ -265,7 +304,7 @@ function isHoliday(date: Date, holidaySet: Set<string>): boolean {
   return holidaySet.has(formatDateStr(date))
 }
 
-function WorkplaceTable({ workplace, employees, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
+function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
   const empStats = useMemo(() => {
     const stats = new Map<string, { workDays: number; offDays: number }>()
     for (const emp of employees) {
@@ -278,6 +317,37 @@ function WorkplaceTable({ workplace, employees, dates, monthGroups, assignmentMa
     }
     return stats
   }, [employees, dates, assignmentMap])
+
+  // 各日付の通し番号: 正社員 → 移動者 → パート の順で 1, 2, 3...
+  // 移動者の番号は別途スロット行で計算する。ここでは正社員とパートの分のみ。
+  // メモが "F" のセル（特殊ポジション）は番号を振らない (が出勤数にはカウント)
+  const isCounted = (a: Assignment | undefined): boolean => !!a && a.workplace === workplace && a.memo !== 'F'
+  const seqMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const d of dates) {
+      const dateStr = formatDateStr(d)
+      let n = 0
+      for (const emp of employees) {
+        if (emp.employmentType !== 'FULL_TIME') continue
+        const a = assignmentMap.get(`${emp.id}-${dateStr}`)
+        if (isCounted(a)) {
+          n++
+          map.set(`${emp.id}-${dateStr}`, n)
+        }
+      }
+      n += movedInPerDay.get(dateStr) ?? 0
+      for (const emp of employees) {
+        if (emp.employmentType === 'FULL_TIME') continue
+        const a = assignmentMap.get(`${emp.id}-${dateStr}`)
+        if (isCounted(a)) {
+          n++
+          map.set(`${emp.id}-${dateStr}`, n)
+        }
+      }
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employees, dates, assignmentMap, workplace, movedInPerDay])
 
   const dailyCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -375,7 +445,8 @@ function WorkplaceTable({ workplace, employees, dates, monthGroups, assignmentMa
           </tr>
         </thead>
         <tbody>
-          {employees.map((emp) => {
+          {/* 正社員 → 移動者スロット → パート の順 */}
+          {employees.filter((e) => e.employmentType === 'FULL_TIME').map((emp) => {
             const stats = empStats.get(emp.id)
             return (
               <tr key={emp.id}>
@@ -406,8 +477,124 @@ function WorkplaceTable({ workplace, employees, dates, monthGroups, assignmentMa
                     if (dow === 0 || isHol) cellBg = 'bg-red-50/50'
                     else if (dow === 6) cellBg = 'bg-blue-50/50'
                   } else if (a) {
-                    cellBg = CELL_COLOR_BY_WORKPLACE[a.workplace] ?? 'bg-gray-100'
-                    if (a.memo) cellContent = a.memo
+                    // 本人の主な勤務地と同じなら無色（自勤務）、違えば移動先の色を表示
+                    if (a.workplace === a.employee.primaryWorkplace) {
+                      cellBg = ''
+                    } else {
+                      cellBg = CELL_COLOR_BY_WORKPLACE[a.workplace] ?? 'bg-gray-100'
+                    }
+                    if (a.memo) {
+                      cellContent = a.memo
+                    } else if (a.workplace === 'L') {
+                      cellContent = 'L'
+                    } else {
+                      const seq = seqMap.get(`${emp.id}-${dateStr}`)
+                      if (seq !== undefined) cellContent = String(seq)
+                    }
+                  }
+                  // ユーザー指定の塗りつぶし色があれば優先 (休み・出勤両方適用)
+                  if (a?.color && CELL_COLOR_PRESETS[a.color]) {
+                    cellBg = CELL_COLOR_PRESETS[a.color]
+                  }
+
+                  const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
+
+                  return (
+                    <td key={dateStr}
+                      onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
+                      className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
+                        editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
+                      } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
+                        isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
+                      }`}>
+                      {cellContent}
+                    </td>
+                  )
+                })}
+                <td className="border border-gray-200 px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50">
+                  {stats?.offDays ?? 0}
+                </td>
+              </tr>
+            )
+          })}
+          {/* 移動者用の匿名スロット行 (期間中の最大移動人数だけ表示) - 正社員とパートの間 */}
+          {Array.from({ length: maxMovedIn }).map((_, slotIdx) => (
+            <tr key={`moved-${slotIdx}`}>
+              <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1.5 text-gray-400 italic whitespace-nowrap">
+                移動 {slotIdx + 1}
+              </td>
+              {dates.map((d) => {
+                const dateStr = formatDateStr(d)
+                const movedCount = movedInPerDay.get(dateStr) ?? 0
+                if (slotIdx >= movedCount) {
+                  return <td key={dateStr} className="border border-gray-200" />
+                }
+                // 通し番号: 正社員 primary 出勤者数 + slotIdx + 1
+                let primaryWorking = 0
+                for (const emp of employees) {
+                  if (emp.employmentType !== 'FULL_TIME') continue
+                  const a = assignmentMap.get(`${emp.id}-${dateStr}`)
+                  if (a && a.workplace === workplace && a.memo !== 'F') primaryWorking++
+                }
+                const number = primaryWorking + slotIdx + 1
+                const cellBg = CELL_COLOR_BY_WORKPLACE[workplace] ?? 'bg-gray-100'
+                return (
+                  <td key={dateStr}
+                    className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg}`}>
+                    {number}
+                  </td>
+                )
+              })}
+              <td className="border border-gray-200 px-2 py-1.5 bg-gray-50" />
+            </tr>
+          ))}
+          {/* パート従業員 */}
+          {employees.filter((e) => e.employmentType !== 'FULL_TIME').map((emp) => {
+            const stats = empStats.get(emp.id)
+            return (
+              <tr key={emp.id}>
+                <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1.5 font-medium text-gray-600 whitespace-nowrap">
+                  {emp.lastName}
+                </td>
+                {dates.map((d) => {
+                  const dateStr = formatDateStr(d)
+                  const a = assignmentMap.get(`${emp.id}-${dateStr}`)
+                  const dow = d.getDay()
+                  const isOff = !a || !a.workplace
+                  const isViolation = violationCells.has(`${emp.id}-${dateStr}`)
+
+                  let cellContent = ''
+                  let cellBg = ''
+                  let cellText = ''
+
+                  if (isOff) {
+                    if (a?.memo) {
+                      cellContent = a.memo
+                      cellText = 'text-gray-700'
+                    } else {
+                      cellContent = '/'
+                      cellText = 'text-gray-300'
+                    }
+                    const isHol = holidaySet.has(dateStr)
+                    if (dow === 0 || isHol) cellBg = 'bg-red-50/50'
+                    else if (dow === 6) cellBg = 'bg-blue-50/50'
+                  } else if (a) {
+                    if (a.workplace === a.employee.primaryWorkplace) {
+                      cellBg = ''
+                    } else {
+                      cellBg = CELL_COLOR_BY_WORKPLACE[a.workplace] ?? 'bg-gray-100'
+                    }
+                    if (a.memo) {
+                      cellContent = a.memo
+                    } else if (a.workplace === 'L') {
+                      cellContent = 'L'
+                    } else {
+                      const seq = seqMap.get(`${emp.id}-${dateStr}`)
+                      if (seq !== undefined) cellContent = String(seq)
+                    }
+                  }
+                  if (a?.color && CELL_COLOR_PRESETS[a.color]) {
+                    cellBg = CELL_COLOR_PRESETS[a.color]
                   }
 
                   const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
@@ -497,25 +684,27 @@ type CellEditorProps = {
   date: string
   currentWorkplace: string | null
   currentMemo: string | null
+  currentColor: string | null
   primaryWorkplace: string
   isPreAssigned?: boolean
-  onSave: (workplace: string | null, memo: string | null, clear?: boolean) => void | Promise<void>
+  onSave: (workplace: string | null, memo: string | null, color: string | null, clear?: boolean) => void | Promise<void>
   onClose: () => void
 }
 
-function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, isPreAssigned, onSave, onClose }: CellEditorProps) {
+function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primaryWorkplace, isPreAssigned, onSave, onClose }: CellEditorProps) {
   const [memo, setMemo] = useState(currentMemo ?? '')
+  const [color, setColor] = useState<string | null>(currentColor ?? null)
   const [saving, setSaving] = useState(false)
 
   const handleClick = async (workplace: string | null) => {
     setSaving(true)
-    await onSave(workplace, memo || null)
+    await onSave(workplace, memo || null, color)
     setSaving(false)
   }
 
   const handleClear = async () => {
     setSaving(true)
-    await onSave(null, null, true)
+    await onSave(null, null, null, true)
     setSaving(false)
   }
 
@@ -530,7 +719,7 @@ function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, isP
         <div className="text-xs text-gray-500 mb-2">基本勤務場所: {WORKPLACE_LABEL[primaryWorkplace]}</div>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'].map((wp) => {
+          {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => {
             const selected = currentWorkplace === wp
             return (
               <button
@@ -573,13 +762,40 @@ function CellEditor({ date, currentWorkplace, currentMemo, primaryWorkplace, isP
           />
         </div>
 
+        <div className="mb-3">
+          <label className="text-xs text-gray-500 block mb-1">塗りつぶし色（任意）</label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setColor(null)}
+              className={`w-7 h-7 rounded border-2 text-xs flex items-center justify-center ${
+                color === null ? 'border-gray-700 bg-white' : 'border-gray-200 bg-white hover:border-gray-400'
+              }`}
+              title="勤務場所デフォルト色"
+            >
+              ×
+            </button>
+            {Object.entries(CELL_COLOR_PRESETS).map(([key, cls]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setColor(key)}
+                className={`w-7 h-7 rounded border-2 ${cls} ${
+                  color === key ? 'border-gray-700 ring-2 ring-offset-1 ring-gray-400' : 'border-transparent hover:border-gray-400'
+                }`}
+                title={key}
+              />
+            ))}
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <button
             disabled={saving}
             onClick={() => handleClick(currentWorkplace)}
             className="flex-1 bg-[#0AB4CC] text-white py-2 rounded-lg text-sm font-medium hover:bg-[#099bb0] disabled:opacity-50"
           >
-            {saving ? '保存中...' : 'メモのみ保存'}
+            {saving ? '保存中...' : 'メモ・色を保存'}
           </button>
         </div>
 

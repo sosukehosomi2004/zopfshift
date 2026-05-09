@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, ChevronRight, Trash2, Play, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { getFiscalMonthFromDate, getPeriodRange, getMonthLabel } from '@/lib/period-month'
 
 type ShiftPeriod = {
@@ -76,6 +77,7 @@ function buildMonthOptions(count: number): { fiscalYear: number; month: number; 
 }
 
 export default function ShiftPeriodsPage() {
+  const router = useRouter()
   const [periods, setPeriods] = useState<ShiftPeriod[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -169,8 +171,10 @@ export default function ShiftPeriodsPage() {
     if (errors.length > 0) {
       alert(`一部の作成に失敗しました:\n${errors.join('\n')}`)
     }
-    // 作成成功した期間は自動的にレビューまで進める
-    if (createdIds.length > 0) {
+    // 1件のみ作成 → そのまま下書きページへ。複数件 → 一括生成モーダルへ。
+    if (createdIds.length === 1) {
+      router.push(`/dashboard/shift-periods/${createdIds[0]}`)
+    } else if (createdIds.length > 1) {
       await openBulkGenerateModal(createdIds)
     }
   }
@@ -184,7 +188,13 @@ export default function ShiftPeriodsPage() {
   }
 
   const startBulkGenerate = async () => {
-    await openBulkGenerateModal(Array.from(selectedPeriodIds))
+    const ids = Array.from(selectedPeriodIds)
+    // 1件のみなら下書きページへ遷移、複数件なら一括生成モーダルへ
+    if (ids.length === 1) {
+      router.push(`/dashboard/shift-periods/${ids[0]}`)
+      return
+    }
+    await openBulkGenerateModal(ids)
   }
 
   const updateRequestStatus = async (

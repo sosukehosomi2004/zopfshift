@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Play, Check } from 'lucide-react'
+import { ArrowLeft, Play, Check, Download } from 'lucide-react'
 import Link from 'next/link'
 import { ShiftGrid } from '@/components/shift/ShiftGrid'
 import { ShortageModal, type ShortageDetail } from '@/components/shift/ShortageModal'
+import { exportShiftToExcel } from '@/lib/export-shift-excel'
 import {
   calculateSoftViolations,
   type SlotDef,
@@ -44,6 +45,7 @@ type Candidate = {
     slotName: string | null
     slotNumber: number | null
     memo?: string | null
+    color?: string | null
     employee: {
       id: string
       employeeNumber: number
@@ -87,6 +89,7 @@ export default function ShiftPeriodDetailPage() {
   }[]>([])
   const [preAssignments, setPreAssignments] = useState<{
     id: string; employeeId: string; date: string; workplace: string | null; memo: string | null;
+    color: string | null;
     employee: Candidate['assignments'][0]['employee']
   }[]>([])
 
@@ -348,6 +351,31 @@ export default function ShiftPeriodDetailPage() {
               確定取消
             </button>
           )}
+
+          {currentCandidate && (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (
+            <button
+              onClick={() => {
+                exportShiftToExcel({
+                  label: period.label,
+                  startDate: period.startDate,
+                  endDate: period.endDate,
+                  assignments: currentCandidate.assignments.map((a) => ({
+                    employeeId: a.employeeId,
+                    date: a.date,
+                    workplace: a.workplace,
+                    memo: a.memo,
+                    employee: a.employee,
+                  })),
+                  allEmployees,
+                  holidays,
+                })
+              }}
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Excelダウンロード
+            </button>
+          )}
         </div>
       </div>
 
@@ -473,26 +501,27 @@ export default function ShiftPeriodDetailPage() {
                 slotName: null,
                 slotNumber: null,
                 memo: p.memo,
+                color: p.color,
                 employee: p.employee,
-              })).filter((a) => a.workplace !== '')}
+              }))}
               allEmployees={allEmployees}
               holidays={holidays}
               preAssignedKeys={new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
               editable
-              onEdit={async ({ employeeId, date, workplace, memo, clear }) => {
+              onEdit={async ({ employeeId, date, workplace, memo, color, clear }) => {
                 if (clear) {
                   // 事前確定取消 → 削除
                   await fetch(`/api/shift-periods/${id}/pre-assignments`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employeeId, date, workplace: null, memo: null, clear: true }),
+                    body: JSON.stringify({ employeeId, date, workplace: null, memo: null, color: null, clear: true }),
                   })
                 } else {
                   // 出勤・休みどちらでも upsert (workplace=null は休み確定)
                   await fetch(`/api/shift-periods/${id}/pre-assignments`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employeeId, date, workplace, memo }),
+                    body: JSON.stringify({ employeeId, date, workplace, memo, color }),
                   })
                 }
                 fetchPreAssignments()
@@ -757,14 +786,14 @@ export default function ShiftPeriodDetailPage() {
                 assignments={currentCandidate.assignments}
                 allEmployees={allEmployees}
                 holidays={holidays}
-                preAssignedKeys={new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
+                preAssignedKeys={period.status === 'CONFIRMED' ? undefined : new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
                 staffingRules={staffingRules}
                 editable={period.status === 'ADJUSTING' && currentCandidate?.isSelected}
-                onEdit={async ({ employeeId, date, workplace, memo }) => {
+                onEdit={async ({ employeeId, date, workplace, memo, color }) => {
                   await fetch(`/api/shift-periods/${id}/assignments`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employeeId, date, workplace, memo }),
+                    body: JSON.stringify({ employeeId, date, workplace, memo, color }),
                   })
                   fetchCandidates()
                 }}

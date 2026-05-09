@@ -4,8 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Plus, Trash2, Calendar, Clock, Settings } from 'lucide-react'
 import { RequestWindowEditModal } from './RequestWindowEditModal'
 
-type DayOverride = { capacity?: number; blocked?: boolean }
-type ConsecBlock = { startDate: string; endDate: string }
+type Message = { startDate: string; endDate: string; body: string }
 
 type RequestWindow = {
   id: string
@@ -14,8 +13,8 @@ type RequestWindow = {
   deadline: string // ISO datetime
   weekdayCapacity: number
   holidayCapacity: number
-  dayOverrides: Record<string, DayOverride>
-  consecutiveBlocks: ConsecBlock[]
+  thresholdOverrides: Record<string, number>
+  messages: Message[]
 }
 
 function fmtDeadline(iso: string): string {
@@ -206,7 +205,7 @@ export function RequestWindowManager() {
                   className="text-xs px-2 py-1 rounded bg-white border hover:bg-gray-100 text-gray-600 inline-flex items-center gap-1"
                 >
                   <Settings className="w-3 h-3" />
-                  制限設定
+                  詳細設定
                 </button>
                 <button
                   onClick={() => handleUpdateDeadline(w.id, w.deadline)}

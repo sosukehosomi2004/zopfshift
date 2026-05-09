@@ -45,8 +45,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 const patchSchema = z.object({
   employeeId: z.string(),
   date: z.string(),
-  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER']).nullable(),
+  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']).nullable(),
   memo: z.string().max(1).optional().nullable(),
+  color: z.string().max(20).optional().nullable(),
   // 削除（事前確定をクリア）
   clear: z.boolean().optional(),
 })
@@ -64,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { employeeId, date, workplace, memo, clear } = parsed.data
+  const { employeeId, date, workplace, memo, color, clear } = parsed.data
   const dateObj = new Date(date)
 
   if (clear) {
@@ -96,13 +97,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           date: dateObj,
         },
       },
-      update: { workplace, memo: memo ?? null },
+      update: { workplace, memo: memo ?? null, color: color ?? null },
       create: {
         shiftPeriodId: id,
         employeeId,
         date: dateObj,
         workplace,
         memo: memo ?? null,
+        color: color ?? null,
       },
     })
   }

@@ -238,6 +238,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       FACTORY: [],
       CAFE: [],
       FLOOR: [],
+      L: [],
       OFFICE: [],
       OTHER: [],
     }

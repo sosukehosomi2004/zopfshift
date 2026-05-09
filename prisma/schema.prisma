@@ -78,6 +78,7 @@ enum Workplace {
   FACTORY
   CAFE
   FLOOR
+  L
   OFFICE
   OTHER
 }
@@ -240,12 +241,13 @@ model RequestWindow {
   fiscalYear      Int
   month           Int      // 1-12 (label の月、例: 6 → 6月度 = 5/21~6/20)
   deadline        DateTime // 申請期限 (日時、例: 2026-04-30 23:59)
-  weekdayCapacity Int      @default(5)  // 平日の上限 (人数)
-  holidayCapacity Int      @default(10) // 休日 (土日祝) の上限
-  // 日別の上書き: { "YYYY-MM-DD": { capacity?: number; blocked?: boolean } }
-  dayOverrides    Json     @default("{}")
-  // 連続禁止範囲: [{ startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD" }]
-  consecutiveBlocks Json   @default("[]")
+  weekdayCapacity Int      @default(6)  // 平日のソフト警告閾値 (達すると「希望者多数」表示。申請はブロックしない)
+  holidayCapacity Int      @default(4)  // 休日のソフト警告閾値
+  // 個別日の警告閾値上書き: { "YYYY-MM-DD": 数字 }
+  thresholdOverrides Json  @default("{}")
+  // 管理者からのメッセージ (期間付き):
+  // [{ startDate: "YYYY-MM-DD", endDate: "YYYY-MM-DD", body: "メッセージ本文" }]
+  messages        Json     @default("[]")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -275,6 +277,7 @@ model PreAssignment {
   date          DateTime    @db.Date
   workplace     Workplace?  // null = 休み確定
   memo          String?
+  color         String?     // セル背景の上書き色（プリセットキー: red/orange/yellow/green/blue/purple/pink/gray）
 
   shiftPeriod   ShiftPeriod @relation(fields: [shiftPeriodId], references: [id], onDelete: Cascade)
   employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -331,6 +334,7 @@ model ShiftAssignment {
   shiftTimeSlot    ShiftTimeSlot?
   isMoved          Boolean        @default(false)
   memo             String?        // 1文字メモ（手動調整用）
+  color            String?        // セル背景の上書き色（プリセットキー）
 
   shiftCandidate ShiftCandidate @relation(fields: [shiftCandidateId], references: [id], onDelete: Cascade)
   employee       Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)

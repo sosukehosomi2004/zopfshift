@@ -4,13 +4,14 @@ import { auth } from '@/lib/auth'
 import { z } from 'zod'
 
 // PATCH /api/shift-periods/[id]/assignments
-// 手動編集: 1セルを更新（出勤先変更 / 休みに / メモ更新）
+// 手動編集: 1セルを更新（出勤先変更 / 休みに / メモ更新 / 色更新）
 const patchSchema = z.object({
   employeeId: z.string(),
-  date: z.string(), // YYYY-MM-DD
-  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER']).nullable(), // null = 休み
+  date: z.string(),
+  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']).nullable(),
   workplaceSlotId: z.string().nullable().optional(),
   memo: z.string().max(1).optional().nullable(),
+  color: z.string().max(20).optional().nullable(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -28,16 +29,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { employeeId, date, workplace, workplaceSlotId, memo } = parsed.data
+  const { employeeId, date, workplace, workplaceSlotId, memo, color } = parsed.data
 
-  // 確定済み候補を取得
   const period = await prisma.shiftPeriod.findUnique({
     where: { id },
     include: {
-      candidates: {
-        where: { isSelected: true },
-        take: 1,
-      },
+      candidates: { where: { isSelected: true }, take: 1 },
     },
   })
 
@@ -55,7 +52,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const dateObj = new Date(date)
 
-  // 既存assignmentを探す
   const existing = await prisma.shiftAssignment.findUnique({
     where: {
       shiftCandidateId_employeeId_date: {
@@ -66,8 +62,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
   })
 
-  // 休み（workplace=null）でもメモがあればassignmentを保持
-  if (workplace === null && !memo) {
+  // 休み（workplace=null）でもメモか色があればassignmentを保持
+  if (workplace === null && !memo && !color) {
     if (existing) {
       await prisma.shiftAssignment.delete({ where: { id: existing.id } })
     }
@@ -78,6 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         workplace,
         workplaceSlotId: workplaceSlotId ?? null,
         memo: memo ?? null,
+        color: color ?? null,
         isMoved: true,
       },
     })
@@ -90,6 +87,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         workplace,
         workplaceSlotId: workplaceSlotId ?? null,
         memo: memo ?? null,
+        color: color ?? null,
         isMoved: true,
       },
     })

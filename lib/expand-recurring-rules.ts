@@ -56,18 +56,13 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
     const key = `${r.employeeId}|${r.date.toISOString().split('T')[0]}`
     // Exclusion (管理者の取消マーク) があればスキップ
     if (excludedKeys.has(key)) continue
-    const memoLabel = r.type === 'PAID_LEAVE' ? '有休' : '公休'
-    const memo = r.memo ? `${memoLabel}: ${r.memo}` : memoLabel
-    await prisma.preAssignment.upsert({
-      where: {
-        shiftPeriodId_employeeId_date: {
-          shiftPeriodId,
-          employeeId: r.employeeId,
-          date: r.date,
-        },
-      },
-      update: { workplace: null, memo },
-      create: {
+    // 既に PreAssignment がある (= 既に処理済み or 管理者が手動で上書き) ならスキップ。
+    // 上書きすると「申請日に手動で出勤に変えた」操作がフェッチのたびに巻き戻される。
+    if (existingKeys.has(key)) continue
+    // 1文字メモ規約: 有休 = "有", 公休 = null (デフォルトの "/" 表示)
+    const memo = r.type === 'PAID_LEAVE' ? '有' : null
+    await prisma.preAssignment.create({
+      data: {
         shiftPeriodId,
         employeeId: r.employeeId,
         date: r.date,

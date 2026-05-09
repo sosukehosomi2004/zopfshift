@@ -9,13 +9,13 @@ const patchSchema = z.object({
   deadline: z.string().optional(),
   weekdayCapacity: z.number().int().min(0).max(99).optional(),
   holidayCapacity: z.number().int().min(0).max(99).optional(),
-  dayOverrides: z.record(z.string(), z.object({
-    capacity: z.number().int().min(0).max(99).optional(),
-    blocked: z.boolean().optional(),
-  })).optional(),
-  consecutiveBlocks: z.array(z.object({
+  // 個別日の閾値上書き
+  thresholdOverrides: z.record(z.string(), z.number().int().min(0).max(99)).optional(),
+  // 管理者からのメッセージ (期間付き)
+  messages: z.array(z.object({
     startDate: z.string(),
     endDate: z.string(),
+    body: z.string().min(1).max(500),
   })).optional(),
 })
 
@@ -36,8 +36,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (data.deadline) updateData.deadline = new Date(data.deadline)
   if (data.weekdayCapacity !== undefined) updateData.weekdayCapacity = data.weekdayCapacity
   if (data.holidayCapacity !== undefined) updateData.holidayCapacity = data.holidayCapacity
-  if (data.dayOverrides !== undefined) updateData.dayOverrides = data.dayOverrides
-  if (data.consecutiveBlocks !== undefined) updateData.consecutiveBlocks = data.consecutiveBlocks
+  if (data.thresholdOverrides !== undefined) updateData.thresholdOverrides = data.thresholdOverrides
+  if (data.messages !== undefined) updateData.messages = data.messages
   const updated = await prisma.requestWindow.update({ where: { id }, data: updateData })
   return NextResponse.json(updated)
 }

@@ -12,24 +12,31 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // 12ヶ月分の自動補充 (現月度から先12ヶ月)
-  const now = getFiscalMonthFromDate(new Date())
-  for (let i = 0; i < 12; i++) {
-    let m = now.month + i
-    let y = now.fiscalYear
+  // 「解放中（締切前）のウィンドウが常に12個ある」状態にする。
+  // 現月度から順に未来へスキャンし、deadline が現在より後のウィンドウを 12 個確保。
+  // 既存ウィンドウの deadline が過ぎていればそれは数えず、さらに先の月を作る。
+  const start = getFiscalMonthFromDate(new Date())
+  const TARGET_OPEN = 12
+  let openCount = 0
+  let i = 0
+  // 安全側のループ上限 (24ヶ月先まで)
+  while (openCount < TARGET_OPEN && i < 24) {
+    let m = start.month + i
+    let y = start.fiscalYear
     while (m > 12) { m -= 12; y += 1 }
-    const exists = await prisma.requestWindow.findUnique({
+    const existing = await prisma.requestWindow.findUnique({
       where: { fiscalYear_month: { fiscalYear: y, month: m } },
     })
-    if (!exists) {
+    if (!existing) {
+      const deadline = computeDefaultDeadline(y, m)
       await prisma.requestWindow.create({
-        data: {
-          fiscalYear: y,
-          month: m,
-          deadline: computeDefaultDeadline(y, m),
-        },
+        data: { fiscalYear: y, month: m, deadline },
       })
+      if (deadline.getTime() > Date.now()) openCount++
+    } else {
+      if (existing.deadline.getTime() > Date.now()) openCount++
     }
+    i++
   }
 
   const windows = await prisma.requestWindow.findMany({

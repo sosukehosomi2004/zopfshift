@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, X, Clock, Lock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Clock, Lock, MessageSquare, AlertTriangle } from 'lucide-react'
 import { format, eachDayOfInterval, getDay, isSameDay } from 'date-fns'
 import { ja } from 'date-fns/locale'
 
@@ -13,8 +13,7 @@ type DayOffRequest = {
   memo?: string
 }
 
-type DayOverride = { capacity?: number; blocked?: boolean }
-type ConsecBlock = { startDate: string; endDate: string }
+type Message = { startDate: string; endDate: string; body: string }
 
 type RequestWindow = {
   id: string
@@ -23,8 +22,8 @@ type RequestWindow = {
   deadline: string
   weekdayCapacity: number
   holidayCapacity: number
-  dayOverrides: Record<string, DayOverride>
-  consecutiveBlocks: ConsecBlock[]
+  thresholdOverrides: Record<string, number>
+  messages: Message[]
   dayCounts: Record<string, number>
 }
 
@@ -135,18 +134,23 @@ export default function StaffRequestPage() {
   const getRequestForDate = (date: Date) =>
     requests.find((r) => isSameDay(new Date(r.date), date))
 
-  // 該当日のキャパ・ブロック・満員などの状態を返す
-  const getDayState = (date: Date): { full: boolean; blocked: boolean; capacity: number; count: number } => {
-    if (!currentWindow) return { full: false, blocked: false, capacity: 0, count: 0 }
+  // 該当日のソフト警告状態 (希望者多数) を返す。申請ブロックはしない。
+  const getDayState = (date: Date): { warn: boolean; threshold: number; count: number } => {
+    if (!currentWindow) return { warn: false, threshold: 0, count: 0 }
     const dateStr = format(date, 'yyyy-MM-dd')
-    const ov = (currentWindow.dayOverrides ?? {})[dateStr]
-    if (ov?.blocked) return { full: false, blocked: true, capacity: 0, count: 0 }
     const dow = date.getDay()
-    const isHol = dow === 0 || dow === 6 // 簡易: 祝日DBは別途取得が必要だが、weekend をhalflyで休日扱い
-    const baseCapacity = isHol ? currentWindow.holidayCapacity : currentWindow.weekdayCapacity
-    const capacity = ov?.capacity ?? baseCapacity
+    const isHol = dow === 0 || dow === 6
+    const baseThreshold = isHol ? currentWindow.holidayCapacity : currentWindow.weekdayCapacity
+    const threshold = (currentWindow.thresholdOverrides ?? {})[dateStr] ?? baseThreshold
     const count = (currentWindow.dayCounts ?? {})[dateStr] ?? 0
-    return { full: count >= capacity, blocked: false, capacity, count }
+    return { warn: count >= threshold, threshold, count }
+  }
+
+  // 指定日にかかる管理者メッセージを返す
+  const getMessagesForDate = (date: Date): Message[] => {
+    if (!currentWindow?.messages) return []
+    const ds = format(date, 'yyyy-MM-dd')
+    return currentWindow.messages.filter((m) => ds >= m.startDate && ds <= m.endDate)
   }
 
   const handleSubmit = async () => {
@@ -230,6 +234,25 @@ export default function StaffRequestPage() {
         対象期間: {range && format(range.start, 'yyyy/MM/dd', { locale: ja })} 〜 {range && format(range.end, 'yyyy/MM/dd', { locale: ja })}
       </p>
 
+      {/* 管理者メッセージ */}
+      {currentWindow.messages && currentWindow.messages.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {currentWindow.messages.map((m, i) => (
+            <div key={i} className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3">
+              <div className="flex items-start gap-2">
+                <MessageSquare className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <div className="text-xs text-amber-700 font-medium">
+                    {format(new Date(m.startDate + 'T00:00:00'), 'M/d', { locale: ja })} 〜 {format(new Date(m.endDate + 'T00:00:00'), 'M/d', { locale: ja })}
+                  </div>
+                  <div className="text-sm text-gray-800 mt-1 whitespace-pre-wrap">{m.body}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* カレンダー */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 relative">
         {isClosed && (
@@ -257,8 +280,8 @@ export default function StaffRequestPage() {
             const dayOfWeek = getDay(day)
             const isSelected = selectedDate && isSameDay(day, selectedDate)
             const state = getDayState(day)
-            const unavailable = state.blocked || state.full
-            const clickable = !req && !isClosed && !unavailable
+            const hasMessage = getMessagesForDate(day).length > 0
+            const clickable = !req && !isClosed
 
             return (
               <button
@@ -270,14 +293,15 @@ export default function StaffRequestPage() {
                     ? 'bg-[#0AB4CC] text-white'
                     : req
                       ? 'cursor-default'
-                      : state.blocked
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : state.full
-                          ? 'bg-red-100 text-red-400 cursor-not-allowed'
-                          : isClosed
-                            ? 'cursor-not-allowed'
-                            : 'hover:bg-gray-50'
-                } ${dayOfWeek === 0 && !unavailable && !req ? 'text-red-500' : ''} ${dayOfWeek === 6 && !unavailable && !req ? 'text-blue-500' : ''}`}
+                      : isClosed
+                        ? 'cursor-not-allowed'
+                        : state.warn
+                          ? 'bg-amber-50 hover:bg-amber-100'
+                          : 'hover:bg-gray-50'
+                } ${hasMessage ? 'ring-2 ring-amber-400' : ''} ${
+                  dayOfWeek === 0 && !req ? 'text-red-500' : ''
+                } ${dayOfWeek === 6 && !req ? 'text-blue-500' : ''}`}
+                title={hasMessage ? '管理者メッセージあり' : ''}
               >
                 <span className={isSelected ? 'text-white' : ''}>
                   {format(day, 'M/d')}
@@ -288,12 +312,10 @@ export default function StaffRequestPage() {
                   }`}>
                     {TYPE_LABELS[req.type]}
                   </span>
-                ) : state.blocked ? (
-                  <span className="text-[9px] mt-0.5">不可</span>
-                ) : state.full ? (
-                  <span className="text-[9px] mt-0.5">満員</span>
-                ) : state.capacity > 0 ? (
-                  <span className="text-[9px] text-gray-400 mt-0.5">{state.count}/{state.capacity}</span>
+                ) : state.warn ? (
+                  <span className="text-[9px] text-amber-700 mt-0.5">⚠ 多数</span>
+                ) : state.threshold > 0 ? (
+                  <span className="text-[9px] text-gray-400 mt-0.5">{state.count}/{state.threshold}</span>
                 ) : null}
               </button>
             )
@@ -312,6 +334,21 @@ export default function StaffRequestPage() {
               <X className="w-4 h-4" />
             </button>
           </div>
+          {(() => {
+            const state = getDayState(selectedDate)
+            if (!state.warn) return null
+            return (
+              <div className="bg-amber-50 border border-amber-200 rounded p-2.5 mb-3 flex items-start gap-2 text-xs text-amber-800">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>休み希望者多数の日です ({state.count}/{state.threshold}名以上)。承認されない可能性がありますがご注意ください。</span>
+              </div>
+            )
+          })()}
+          {getMessagesForDate(selectedDate).map((m, i) => (
+            <div key={i} className="bg-amber-50 border border-amber-200 rounded p-2.5 mb-3 text-xs text-amber-800 whitespace-pre-wrap">
+              {m.body}
+            </div>
+          ))}
           <div className="flex gap-3 mb-3">
             {(['DAY_OFF', 'PAID_LEAVE'] as const).map((type) => (
               <label key={type} className="flex items-center gap-2 cursor-pointer">
