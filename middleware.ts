@@ -23,8 +23,13 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string; mustCh
   }
 
   // 強制パスワード変更が必要 → 専用ページへ
+  // ただし API ルートはリダイレクト対象外 (パスワード変更APIそのものをブロックしないため)
   const mustChange = req.auth?.user?.mustChangePassword === true
-  if (mustChange && !pathname.startsWith(FORCE_CHANGE_PATH)) {
+  if (
+    mustChange &&
+    !pathname.startsWith(FORCE_CHANGE_PATH) &&
+    !pathname.startsWith('/api/')
+  ) {
     return NextResponse.redirect(new URL(FORCE_CHANGE_PATH, req.url))
   }
   // 変更済みなのに強制ページへアクセス → 通常画面へ
