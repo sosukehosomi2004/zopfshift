@@ -1,0 +1,24 @@
+[
+  {
+    "id": "cmoztysin000004jucf17nj03",
+    "employeeId": "cmozh8u71005lejs64ngf4krm",
+    "dayOfWeek": null,
+    "dayCategory": "WEEKEND_OR_HOLIDAY",
+    "excludeHolidays": null,
+    "ruleType": "ALWAYS_OFF",
+    "workplace": null,
+    "memo": null,
+    "createdAt": "2026-05-10T13:50:34.463Z"
+  },
+  {
+    "id": "cmoztz1cz000104jumxi59yw8",
+    "employeeId": "cmozh8u71005lejs64ngf4krm",
+    "dayOfWeek": null,
+    "dayCategory": "WEEKDAY",
+    "excludeHolidays": null,
+    "ruleType": "ALWAYS_WORK",
+    "workplace": "FLOOR",
+    "memo": null,
+    "createdAt": "2026-05-10T13:50:45.923Z"
+  }
+]

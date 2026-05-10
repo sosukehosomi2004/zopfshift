@@ -29,8 +29,9 @@ yarn-error.log*
 .env
 .env*.local
 
-# debug scripts
-/scripts
+# debug scripts (snapshot-seed は本番運用ツールなので例外的に保存)
+/scripts/*
+!/scripts/snapshot-seed.ts
 
 # vercel
 .vercel

@@ -1,0 +1,1719 @@
+[
+  {
+    "id": "cmozh8h0a0000ejs6smap4fnm",
+    "employeeNumber": 1,
+    "lastName": "管理",
+    "firstName": "太郎",
+    "lastNameRomaji": "Kanri",
+    "firstNameRomaji": "Taro",
+    "password": "$2b$10$UHG/ilcZ0D1G51RJK2bxw.Ca6B/l93Vb4H/jMSLaqGL3pury2Y0Wy",
+    "mustChangePassword": false,
+    "role": "ADMIN",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "OFFICE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:11.098Z",
+    "updatedAt": "2026-05-10T13:43:46.674Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8i27000gejs6hjja6s3p",
+    "employeeNumber": 2,
+    "lastName": "上田",
+    "firstName": "怜",
+    "lastNameRomaji": "Ueda",
+    "firstNameRomaji": "Satoshi",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:12.463Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "MID"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8j3w000wejs6g4ybptmb",
+    "employeeNumber": 3,
+    "lastName": "篠原",
+    "firstName": "遼",
+    "lastNameRomaji": "Shinohara",
+    "firstNameRomaji": "Ryo",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:13.820Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8jxp0019ejs6804ehq6f",
+    "employeeNumber": 4,
+    "lastName": "伊藤",
+    "firstName": "大毅",
+    "lastNameRomaji": "Ito",
+    "firstNameRomaji": "Daiki",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:14.893Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8l0w001qejs6i9ryje9w",
+    "employeeNumber": 5,
+    "lastName": "福永",
+    "firstName": "将之",
+    "lastNameRomaji": "Fukunaga",
+    "firstNameRomaji": "Masayuki",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:16.304Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8lv30023ejs6f0pk28ti",
+    "employeeNumber": 6,
+    "lastName": "小松",
+    "firstName": "裕也",
+    "lastNameRomaji": "Komatsu",
+    "firstNameRomaji": "Yuya",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:17.391Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8mkc002eejs6n0yaygr6",
+    "employeeNumber": 7,
+    "lastName": "三上",
+    "firstName": "大輔",
+    "lastNameRomaji": "Mikami",
+    "firstNameRomaji": "Daisuke",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:18.300Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8nkt002tejs62h4734j8",
+    "employeeNumber": 8,
+    "lastName": "泉",
+    "firstName": "百花",
+    "lastNameRomaji": "Izumi",
+    "firstNameRomaji": "Momoka",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:19.613Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8nu1002xejs6gcw9ewsx",
+    "employeeNumber": 9,
+    "lastName": "小笠原",
+    "firstName": "渚",
+    "lastNameRomaji": "Ogasawara",
+    "firstNameRomaji": "Nagisa",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "LOW",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:19.945Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8olm0039ejs68dus392p",
+    "employeeNumber": 10,
+    "lastName": "吉田",
+    "firstName": "美咲",
+    "lastNameRomaji": "Yoshida",
+    "firstNameRomaji": "Misaki",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "LOW",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:20.938Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8pd3003lejs62x0m57do",
+    "employeeNumber": 11,
+    "lastName": "高田",
+    "firstName": "省吾",
+    "lastNameRomaji": "Takada",
+    "firstNameRomaji": "Shogo",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:21.927Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8q13003vejs652ndl7la",
+    "employeeNumber": 12,
+    "lastName": "後藤",
+    "firstName": "鈴奈",
+    "lastNameRomaji": "Goto",
+    "firstNameRomaji": "Suzuna",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:22.791Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8qh70042ejs69ckwmgbv",
+    "employeeNumber": 13,
+    "lastName": "本間",
+    "firstName": "友哉",
+    "lastNameRomaji": "Honma",
+    "firstNameRomaji": "Tomoya",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:23.371Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8qxa0049ejs6024a4moj",
+    "employeeNumber": 14,
+    "lastName": "丹治",
+    "firstName": "崇人",
+    "lastNameRomaji": "Tanji",
+    "firstNameRomaji": "Takahito",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:23.950Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8rdc004gejs6in0qvygo",
+    "employeeNumber": 15,
+    "lastName": "宮本",
+    "firstName": "健吾",
+    "lastNameRomaji": "Miyamoto",
+    "firstNameRomaji": "Kengo",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:24.528Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8rk6004jejs6emn8a5e0",
+    "employeeNumber": 16,
+    "lastName": "坂本",
+    "firstName": "裕一朗",
+    "lastNameRomaji": "Sakamoto",
+    "firstNameRomaji": "Yuichiro",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:24.774Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8s2b004pejs6suu4rztr",
+    "employeeNumber": 17,
+    "lastName": "河野",
+    "firstName": "あかり",
+    "lastNameRomaji": "Kono",
+    "firstNameRomaji": "Akari",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FACTORY",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:25.427Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8scj004sejs6uks2zyh7",
+    "employeeNumber": 18,
+    "lastName": "末永",
+    "firstName": "美咲",
+    "lastNameRomaji": "Suenaga",
+    "firstNameRomaji": "Misaki",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": "LOW",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:25.795Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8so4004xejs67fiz6z0a",
+    "employeeNumber": 19,
+    "lastName": "池田",
+    "firstName": "麻衣",
+    "lastNameRomaji": "Ikeda",
+    "firstNameRomaji": "Mai",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:26.212Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8szk0052ejs62hij5jym",
+    "employeeNumber": 20,
+    "lastName": "斎木",
+    "firstName": "康平",
+    "lastNameRomaji": "Saiki",
+    "firstNameRomaji": "Kohei",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:26.623Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg",
+        "proficiency": "HIGH"
+      },
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "MID"
+      },
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8t8l0056ejs6l1taz0fy",
+    "employeeNumber": 21,
+    "lastName": "廣瀬",
+    "firstName": "堅太郎",
+    "lastNameRomaji": "Hirose",
+    "firstNameRomaji": "Kentaro",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:26.949Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8td90058ejs65xv2hhm5",
+    "employeeNumber": 22,
+    "lastName": "佐藤",
+    "firstName": "美奈子",
+    "lastNameRomaji": "Sato",
+    "firstNameRomaji": "Minako",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.117Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8thw005aejs6z2itruef",
+    "employeeNumber": 23,
+    "lastName": "山田",
+    "firstName": "幸恵",
+    "lastNameRomaji": "Yamada",
+    "firstNameRomaji": "Yukie",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.284Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8toq005dejs6oe3h326l",
+    "employeeNumber": 24,
+    "lastName": "大津",
+    "firstName": "正子",
+    "lastNameRomaji": "Otsu",
+    "firstNameRomaji": "Masako",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.530Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8tt9005fejs66f97vfee",
+    "employeeNumber": 25,
+    "lastName": "相多",
+    "firstName": "礼子",
+    "lastNameRomaji": "Aita",
+    "firstNameRomaji": "Reiko",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.693Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8u04005iejs69xc0dezk",
+    "employeeNumber": 26,
+    "lastName": "井上",
+    "firstName": "太佳子",
+    "lastNameRomaji": "Inoue",
+    "firstNameRomaji": "Takako",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "CAFE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.940Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      },
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8u71005lejs64ngf4krm",
+    "employeeNumber": 27,
+    "lastName": "上田",
+    "firstName": "美樹子",
+    "lastNameRomaji": "Ueda",
+    "firstNameRomaji": "Mikiko",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.189Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8udy005oejs675yxm7p9",
+    "employeeNumber": 28,
+    "lastName": "篠原",
+    "firstName": "ゆい",
+    "lastNameRomaji": "Shinohara",
+    "firstNameRomaji": "Yui",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.438Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8ug9005pejs60sa92iv5",
+    "employeeNumber": 29,
+    "lastName": "田中",
+    "firstName": "拓人",
+    "lastNameRomaji": "Tanaka",
+    "firstNameRomaji": "Takuto",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.521Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj",
+        "proficiency": null
+      },
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja",
+        "proficiency": null
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FACTORY"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8txh005tejs6nb2vcib2",
+    "employeeNumber": 30,
+    "lastName": "三好",
+    "firstName": "由起",
+    "lastNameRomaji": "Miyoshi",
+    "firstNameRomaji": "Yuki",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.845Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8tzr005uejs6cprn2ok8",
+    "employeeNumber": 31,
+    "lastName": "小川",
+    "firstName": "諒",
+    "lastNameRomaji": "Ogawa",
+    "firstNameRomaji": "Ryo",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:27.927Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8u22005vejs6ufnw4j58",
+    "employeeNumber": 32,
+    "lastName": "木村",
+    "firstName": "夏菜",
+    "lastNameRomaji": "Kimura",
+    "firstNameRomaji": "Natsuna",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.010Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8u4n005wejs6vmcg7z31",
+    "employeeNumber": 33,
+    "lastName": "舩津",
+    "firstName": "蓮",
+    "lastNameRomaji": "Funatsu",
+    "firstNameRomaji": "Ren",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "LOW",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.103Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9",
+        "proficiency": "LOW"
+      }
+    ],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8uco005zejs6sgb97vpr",
+    "employeeNumber": 34,
+    "lastName": "曽我",
+    "firstName": "美由佳",
+    "lastNameRomaji": "Soga",
+    "firstNameRomaji": "Miyuka",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "FULL_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "LOW",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.392Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8uf50060ejs62exiazqm",
+    "employeeNumber": 35,
+    "lastName": "新倉",
+    "firstName": "琴絵",
+    "lastNameRomaji": "Shinkura",
+    "firstNameRomaji": "Kotoe",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.481Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8uhq0061ejs659g88o7i",
+    "employeeNumber": 36,
+    "lastName": "渡邉",
+    "firstName": "星来",
+    "lastNameRomaji": "Watanabe",
+    "firstNameRomaji": "Seira",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.574Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8umf0063ejs6ssvhezmo",
+    "employeeNumber": 37,
+    "lastName": "竹歳",
+    "firstName": "千鶴",
+    "lastNameRomaji": "Taketoshi",
+    "firstNameRomaji": "Chizuru",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.743Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8uor0064ejs6ctli3geo",
+    "employeeNumber": 38,
+    "lastName": "厚",
+    "firstName": "靖代",
+    "lastNameRomaji": "Atsu",
+    "firstNameRomaji": "Yasuyo",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:28.827Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8uu90066ejs62bbsv9qz",
+    "employeeNumber": 39,
+    "lastName": "川村",
+    "firstName": "のり子",
+    "lastNameRomaji": "Kawamura",
+    "firstNameRomaji": "Noriko",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.025Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      },
+      {
+        "workplace": "CAFE"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8v1b0069ejs652h5wjg5",
+    "employeeNumber": 40,
+    "lastName": "富田",
+    "firstName": "彩楽",
+    "lastNameRomaji": "Tomita",
+    "firstNameRomaji": "Sara",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "FLOOR",
+    "floorProficiency": "MID",
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.279Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8v3o006aejs6omh1yeup",
+    "employeeNumber": 41,
+    "lastName": "柳",
+    "firstName": "真理奈",
+    "lastNameRomaji": "Yanagi",
+    "firstNameRomaji": "Marina",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OFFICE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.364Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8v8b006cejs6qlhph4ci",
+    "employeeNumber": 42,
+    "lastName": "木村",
+    "firstName": "舞",
+    "lastNameRomaji": "Kimura",
+    "firstNameRomaji": "Mai",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OFFICE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.531Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "OTHER"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vcu006eejs65t5233n8",
+    "employeeNumber": 43,
+    "lastName": "ローフト",
+    "firstName": "芳",
+    "lastNameRomaji": "Looft",
+    "firstNameRomaji": "Kaori",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OFFICE",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.694Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vf4006fejs6b4d7pzmo",
+    "employeeNumber": 44,
+    "lastName": "赤池",
+    "firstName": "梢",
+    "lastNameRomaji": "Akaike",
+    "firstNameRomaji": "Kozue",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OTHER",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.776Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [
+      {
+        "workplace": "FLOOR"
+      }
+    ],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vjn006hejs6p2z0kmbv",
+    "employeeNumber": 45,
+    "lastName": "奥",
+    "firstName": "寿子",
+    "lastNameRomaji": "Oku",
+    "firstNameRomaji": "Hisako",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OTHER",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:29.939Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vlw006iejs61t6x4lq3",
+    "employeeNumber": 46,
+    "lastName": "山下",
+    "firstName": "恵美子",
+    "lastNameRomaji": "Yamashita",
+    "firstNameRomaji": "Emiko",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OTHER",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:30.020Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vo6006jejs6d13dqcem",
+    "employeeNumber": 47,
+    "lastName": "湯原",
+    "firstName": "愛子",
+    "lastNameRomaji": "Yuhara",
+    "firstNameRomaji": "Aiko",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OTHER",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:30.102Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  },
+  {
+    "id": "cmozh8vqp006kejs683ixi4ug",
+    "employeeNumber": 48,
+    "lastName": "藤本",
+    "firstName": "文子",
+    "lastNameRomaji": "Fujimoto",
+    "firstNameRomaji": "Ayako",
+    "password": "$2b$10$vXmJRHyPv9FECOV5IF7cquckwQP0IHaaGmkYgWoO5Y4ZjKyIDKGTy",
+    "mustChangePassword": true,
+    "role": "STAFF",
+    "employmentType": "PART_TIME",
+    "primaryWorkplace": "OTHER",
+    "floorProficiency": null,
+    "isActive": true,
+    "retiredAt": null,
+    "createdAt": "2026-05-10T07:54:30.193Z",
+    "updatedAt": "2026-05-10T13:35:54.900Z",
+    "skills": [],
+    "secondaryWorkplaces": [],
+    "availableShiftTimes": []
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "cmozh90kl008lejs6i0p1wh33",
+    "workplace": "FACTORY",
+    "dayType": "WEEKDAY_MON_THU",
+    "requiredCount": 9,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008mejs6dfe6qjn9",
+    "workplace": "FACTORY",
+    "dayType": "FRIDAY",
+    "requiredCount": 10,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008nejs6rof8siia",
+    "workplace": "FACTORY",
+    "dayType": "HOLIDAY",
+    "requiredCount": 11,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008oejs6bp3t2hs6",
+    "workplace": "CAFE",
+    "dayType": "WEEKDAY_MON_THU",
+    "requiredCount": 3,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008pejs6p18w1ri6",
+    "workplace": "CAFE",
+    "dayType": "FRIDAY",
+    "requiredCount": 3,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008qejs6e71kujg1",
+    "workplace": "CAFE",
+    "dayType": "HOLIDAY",
+    "requiredCount": 4,
+    "minFullTimeCount": null,
+    "baseFullTimeCount": null
+  },
+  {
+    "id": "cmozh90kl008rejs6397zhw1o",
+    "workplace": "FLOOR",
+    "dayType": "WEEKDAY_MON_THU",
+    "requiredCount": 6,
+    "minFullTimeCount": 3,
+    "baseFullTimeCount": 3
+  },
+  {
+    "id": "cmozh90kl008sejs683j2jclu",
+    "workplace": "FLOOR",
+    "dayType": "FRIDAY",
+    "requiredCount": 6,
+    "minFullTimeCount": 3,
+    "baseFullTimeCount": 3
+  },
+  {
+    "id": "cmozh90kl008tejs63yuqxd8a",
+    "workplace": "FLOOR",
+    "dayType": "HOLIDAY",
+    "requiredCount": 7,
+    "minFullTimeCount": 4,
+    "baseFullTimeCount": 4
+  }
+]

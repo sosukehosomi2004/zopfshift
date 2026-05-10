@@ -2,17 +2,23 @@ import 'dotenv/config'
 import { PrismaClient, Workplace, EmploymentType, EmployeeRole, DayType, Proficiency } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 
-async function main() {
-  // 既存データ削除
+const SNAPSHOT_DIR = join(process.cwd(), 'prisma', 'seed-data')
+
+async function deleteAll() {
   await prisma.notification.deleteMany()
   await prisma.shiftAssignment.deleteMany()
   await prisma.shiftCandidate.deleteMany()
   await prisma.shiftPeriod.deleteMany()
   await prisma.dayOffRequest.deleteMany()
+  await prisma.preAssignmentExclusion.deleteMany()
+  await prisma.preAssignment.deleteMany()
+  await prisma.employeeRecurringRule.deleteMany()
   await prisma.workplaceSlotRule.deleteMany()
   await prisma.workplaceSlotSkill.deleteMany()
   await prisma.workplaceSlot.deleteMany()
@@ -24,6 +30,142 @@ async function main() {
   await prisma.employee.deleteMany()
   await prisma.holiday.deleteMany()
   await prisma.monthlyHolidayConfig.deleteMany()
+  await prisma.requestWindow.deleteMany()
+}
+
+/**
+ * prisma/seed-data/*.json から復元する。
+ * snapshot-seed スクリプトで取った最新状態を再現。
+ */
+async function restoreFromSnapshot() {
+  const load = <T>(name: string): T => JSON.parse(readFileSync(join(SNAPSHOT_DIR, name), 'utf8'))
+
+  // 1) Skill (FK 元なので最初)
+  const skills: Array<{ id: string; workplace: string; name: string; sortOrder: number }> = load('skills.json')
+  for (const s of skills) {
+    await prisma.skill.create({
+      data: { id: s.id, workplace: s.workplace as Workplace, name: s.name, sortOrder: s.sortOrder },
+    })
+  }
+
+  // 2) Employee + 関連
+  const employees: Array<{
+    id: string; employeeNumber: number; lastName: string; firstName: string;
+    lastNameRomaji: string; firstNameRomaji: string; password: string;
+    mustChangePassword: boolean; role: string; employmentType: string;
+    primaryWorkplace: string; floorProficiency: string | null;
+    isActive: boolean; retiredAt: string | null;
+    skills: Array<{ skillId: string; proficiency: string | null }>;
+    secondaryWorkplaces: Array<{ workplace: string }>;
+    availableShiftTimes: Array<{ timeSlot: string }>;
+  }> = load('employees.json')
+
+  for (const e of employees) {
+    await prisma.employee.create({
+      data: {
+        id: e.id,
+        employeeNumber: e.employeeNumber,
+        lastName: e.lastName,
+        firstName: e.firstName,
+        lastNameRomaji: e.lastNameRomaji,
+        firstNameRomaji: e.firstNameRomaji,
+        password: e.password,
+        mustChangePassword: e.mustChangePassword,
+        role: e.role as EmployeeRole,
+        employmentType: e.employmentType as EmploymentType,
+        primaryWorkplace: e.primaryWorkplace as Workplace,
+        floorProficiency: e.floorProficiency as Proficiency | null,
+        isActive: e.isActive,
+        retiredAt: e.retiredAt ? new Date(e.retiredAt) : null,
+        skills: { create: e.skills.map((s) => ({ skillId: s.skillId, proficiency: s.proficiency as Proficiency | null })) },
+        secondaryWorkplaces: { create: e.secondaryWorkplaces.map((sw) => ({ workplace: sw.workplace as Workplace })) },
+        availableShiftTimes: { create: e.availableShiftTimes.map((t) => ({ timeSlot: t.timeSlot as 'EARLY' | 'DAYTIME' | 'CLOSE' })) },
+      },
+    })
+  }
+
+  // 3) WorkplaceSlot + 関連
+  const slots: Array<{
+    id: string; workplace: string; name: string; sortOrder: number;
+    rules: Array<{ dayType: string; isRequired: boolean; groupKey: string | null }>;
+    skills: Array<{ skillId: string }>;
+  }> = load('workplace-slots.json')
+
+  for (const slot of slots) {
+    await prisma.workplaceSlot.create({
+      data: {
+        id: slot.id,
+        workplace: slot.workplace as Workplace,
+        name: slot.name,
+        sortOrder: slot.sortOrder,
+        rules: { create: slot.rules.map((r) => ({ dayType: r.dayType as DayType, isRequired: r.isRequired, groupKey: r.groupKey })) },
+        skills: { create: slot.skills.map((sk) => ({ skillId: sk.skillId })) },
+      },
+    })
+  }
+
+  // 4) WorkplaceStaffingRule
+  const staffingRules: Array<{
+    workplace: string; dayType: string; requiredCount: number;
+    minFullTimeCount: number | null; baseFullTimeCount: number | null;
+  }> = load('staffing-rules.json')
+
+  for (const r of staffingRules) {
+    await prisma.workplaceStaffingRule.create({
+      data: {
+        workplace: r.workplace as Workplace,
+        dayType: r.dayType as DayType,
+        requiredCount: r.requiredCount,
+        minFullTimeCount: r.minFullTimeCount,
+        baseFullTimeCount: r.baseFullTimeCount,
+      },
+    })
+  }
+
+  // 5) MonthlyHolidayConfig
+  const holidayConfigs: Array<{ fiscalYear: number; month: number; holidayCount: number }> = load('monthly-holiday-configs.json')
+  for (const c of holidayConfigs) {
+    await prisma.monthlyHolidayConfig.create({
+      data: { fiscalYear: c.fiscalYear, month: c.month, holidayCount: c.holidayCount },
+    })
+  }
+
+  // 6) EmployeeRecurringRule
+  const recurringRules: Array<{
+    id: string; employeeId: string; dayOfWeek: number | null; dayCategory: string | null;
+    excludeHolidays: boolean; ruleType: string; workplace: string | null; memo: string | null;
+  }> = load('employee-recurring-rules.json')
+
+  for (const r of recurringRules) {
+    await prisma.employeeRecurringRule.create({
+      data: {
+        id: r.id,
+        employeeId: r.employeeId,
+        dayOfWeek: r.dayOfWeek,
+        dayCategory: r.dayCategory as 'HOLIDAY' | 'WEEKEND_OR_HOLIDAY' | 'WEEKDAY' | null,
+        excludeHolidays: r.excludeHolidays,
+        ruleType: r.ruleType as 'ALWAYS_OFF' | 'ALWAYS_WORK',
+        workplace: r.workplace as Workplace | null,
+        memo: r.memo,
+      },
+    })
+  }
+
+  console.log(`スナップショット復元: skills=${skills.length}, employees=${employees.length}, slots=${slots.length}, staffingRules=${staffingRules.length}, holidayConfigs=${holidayConfigs.length}, recurringRules=${recurringRules.length}`)
+}
+
+async function main() {
+  await deleteAll()
+
+  // スナップショットがあれば復元、なければ初期データを作成
+  if (existsSync(join(SNAPSHOT_DIR, 'employees.json'))) {
+    console.log(`スナップショット (${SNAPSHOT_DIR}) を検出: 復元モード`)
+    await restoreFromSnapshot()
+    console.log('Seed (snapshot restore) completed successfully!')
+    return
+  }
+
+  console.log('スナップショット未検出: 初期データ生成モード')
 
   const hash = await bcrypt.hash('password123', 10)
 
@@ -622,7 +764,7 @@ async function main() {
       // 工場
       { workplace: Workplace.FACTORY, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 9 },
       { workplace: Workplace.FACTORY, dayType: DayType.FRIDAY, requiredCount: 10 },
-      { workplace: Workplace.FACTORY, dayType: DayType.HOLIDAY, requiredCount: 10 },
+      { workplace: Workplace.FACTORY, dayType: DayType.HOLIDAY, requiredCount: 11 },
       // カフェ
       { workplace: Workplace.CAFE, dayType: DayType.WEEKDAY_MON_THU, requiredCount: 3 },
       { workplace: Workplace.CAFE, dayType: DayType.FRIDAY, requiredCount: 3 },

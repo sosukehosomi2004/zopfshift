@@ -1,0 +1,396 @@
+[
+  {
+    "id": "cmozh8vtv006lejs63ix2mpsv",
+    "workplace": "FACTORY",
+    "name": "午前窯",
+    "sortOrder": 1,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8h320001ejs67wv1zvng"
+      },
+      {
+        "skillId": "cmozh8h5g0002ejs6iw63iv7c"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8wad006rejs6zkkrjsg4",
+    "workplace": "FACTORY",
+    "name": "午前仕込",
+    "sortOrder": 2,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hce0005ejs6wi8blb7k"
+      },
+      {
+        "skillId": "cmozh8hep0006ejs6ji67hh7q"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8wo1006xejs6sljy6z79",
+    "workplace": "FACTORY",
+    "name": "午後仕込",
+    "sortOrder": 3,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hh10007ejs609vhfcj1"
+      },
+      {
+        "skillId": "cmozh8hjd0008ejs6v6kfgsv6"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8x1q0073ejs6qm4zss2p",
+    "workplace": "FACTORY",
+    "name": "前麺",
+    "sortOrder": 4,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hlo0009ejs6vyej1hmj"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8xd50078ejs6whot492k",
+    "workplace": "FACTORY",
+    "name": "午後窯",
+    "sortOrder": 5,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8h7p0003ejs6abfmxtpx"
+      },
+      {
+        "skillId": "cmozh8ha30004ejs6mv4y3l7q"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8xqx007eejs60rc3jp87",
+    "workplace": "FACTORY",
+    "name": "後麺①",
+    "sortOrder": 6,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": false,
+        "groupKey": "slot6or9"
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8y2h007jejs62qjs4z0g",
+    "workplace": "FACTORY",
+    "name": "後麺②",
+    "sortOrder": 7,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hnz000aejs6wh3i7dja"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8yew007oejs66w8rtabw",
+    "workplace": "FACTORY",
+    "name": "シーター",
+    "sortOrder": 8,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hqc000bejs6irfkg7w8"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8yq9007tejs68wxvzkjk",
+    "workplace": "FACTORY",
+    "name": "焼込①",
+    "sortOrder": 9,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": false,
+        "groupKey": "slot6or9"
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8z1j007yejs6ypt9axxg",
+    "workplace": "FACTORY",
+    "name": "焼込②",
+    "sortOrder": 10,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hsx000cejs69pc9u6lu"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8zd20083ejs6cf8pyfiz",
+    "workplace": "CAFE",
+    "name": "K",
+    "sortOrder": 1,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hv9000dejs60xyeekxg"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8zof0088ejs6adogd63d",
+    "workplace": "CAFE",
+    "name": "S",
+    "sortOrder": 2,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9"
+      }
+    ]
+  },
+  {
+    "id": "cmozh8zzo008dejs6rk1i7bmc",
+    "workplace": "CAFE",
+    "name": "KS",
+    "sortOrder": 3,
+    "rules": [
+      {
+        "dayType": "WEEKDAY_MON_THU",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "FRIDAY",
+        "isRequired": true,
+        "groupKey": null
+      },
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hzw000fejs6ce8e2clx"
+      }
+    ]
+  },
+  {
+    "id": "cmozh90b5008iejs6u3ffsj49",
+    "workplace": "CAFE",
+    "name": "S②",
+    "sortOrder": 4,
+    "rules": [
+      {
+        "dayType": "HOLIDAY",
+        "isRequired": true,
+        "groupKey": null
+      }
+    ],
+    "skills": [
+      {
+        "skillId": "cmozh8hxl000eejs6908ewbp9"
+      }
+    ]
+  }
+]

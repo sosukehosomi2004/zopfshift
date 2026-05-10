@@ -1,0 +1,92 @@
+[
+  {
+    "id": "cmozh8h320001ejs67wv1zvng",
+    "workplace": "FACTORY",
+    "name": "平日午前窯",
+    "sortOrder": 0
+  },
+  {
+    "id": "cmozh8h5g0002ejs6iw63iv7c",
+    "workplace": "FACTORY",
+    "name": "休日午前窯",
+    "sortOrder": 1
+  },
+  {
+    "id": "cmozh8h7p0003ejs6abfmxtpx",
+    "workplace": "FACTORY",
+    "name": "平日午後窯",
+    "sortOrder": 2
+  },
+  {
+    "id": "cmozh8ha30004ejs6mv4y3l7q",
+    "workplace": "FACTORY",
+    "name": "休日午後窯",
+    "sortOrder": 3
+  },
+  {
+    "id": "cmozh8hce0005ejs6wi8blb7k",
+    "workplace": "FACTORY",
+    "name": "平日午前仕込",
+    "sortOrder": 4
+  },
+  {
+    "id": "cmozh8hep0006ejs6ji67hh7q",
+    "workplace": "FACTORY",
+    "name": "休日午前仕込",
+    "sortOrder": 5
+  },
+  {
+    "id": "cmozh8hh10007ejs609vhfcj1",
+    "workplace": "FACTORY",
+    "name": "平日午後仕込",
+    "sortOrder": 6
+  },
+  {
+    "id": "cmozh8hjd0008ejs6v6kfgsv6",
+    "workplace": "FACTORY",
+    "name": "休日午後仕込",
+    "sortOrder": 7
+  },
+  {
+    "id": "cmozh8hlo0009ejs6vyej1hmj",
+    "workplace": "FACTORY",
+    "name": "前麺",
+    "sortOrder": 8
+  },
+  {
+    "id": "cmozh8hnz000aejs6wh3i7dja",
+    "workplace": "FACTORY",
+    "name": "後麺",
+    "sortOrder": 9
+  },
+  {
+    "id": "cmozh8hqc000bejs6irfkg7w8",
+    "workplace": "FACTORY",
+    "name": "シーター",
+    "sortOrder": 10
+  },
+  {
+    "id": "cmozh8hsx000cejs69pc9u6lu",
+    "workplace": "FACTORY",
+    "name": "焼込",
+    "sortOrder": 11
+  },
+  {
+    "id": "cmozh8hv9000dejs60xyeekxg",
+    "workplace": "CAFE",
+    "name": "K",
+    "sortOrder": 0
+  },
+  {
+    "id": "cmozh8hxl000eejs6908ewbp9",
+    "workplace": "CAFE",
+    "name": "S",
+    "sortOrder": 1
+  },
+  {
+    "id": "cmozh8hzw000fejs6ce8e2clx",
+    "workplace": "CAFE",
+    "name": "KS",
+    "sortOrder": 2
+  }
+]
