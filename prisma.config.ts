@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // 通常のクライアント (実行時): pooled connection を優先。
+    // マイグレーション CLI 実行時は DIRECT_URL を優先する (pgbouncer はマイグレーション非対応)。
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });
