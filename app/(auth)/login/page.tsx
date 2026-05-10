@@ -40,37 +40,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="w-full max-w-sm">
-      {/* Logo */}
-      <div className="flex flex-col items-center mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" fill="#0AB4CC" />
-            <path d="M14 2L26 8V20L14 26L2 20V8L14 2Z" fill="url(#g)" opacity="0.3"/>
-            <defs>
-              <linearGradient id="g" x1="2" y1="2" x2="26" y2="26">
-                <stop stopColor="white"/>
-                <stop offset="1" stopColor="#0AB4CC" stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="text-2xl font-bold text-[#0AB4CC] tracking-tight">ShiftApp</span>
+    <div className="w-full">
+      {/* ロゴ: zopf 公式と同じ Kreon フォント */}
+      <div className="flex flex-col items-center mb-10">
+        <h1
+          className="text-7xl tracking-wide text-[#5C3A1F] leading-none"
+          style={{ fontFamily: 'var(--font-kreon)', fontWeight: 300 }}
+        >
+          zopf
+        </h1>
+        <div className="flex items-center gap-3 mt-2">
+          <span className="h-px w-8 bg-[#A8845E]" />
+          <p className="text-xs tracking-[0.3em] text-[#7A5A3F] uppercase">
+            shift
+          </p>
+          <span className="h-px w-8 bg-[#A8845E]" />
         </div>
-        <p className="text-sm text-[#888]">シフト管理サービス</p>
+        <p className="text-xs text-[#9B7A5A] mt-3 tracking-wider">
+          パン焼き小屋ツオップ シフト管理
+        </p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-[#E0E0E0] p-8">
-        <h2 className="text-base font-semibold text-[#333] text-center mb-6">
-          アカウントにログイン
-        </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* カード */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-[#E8DCC4] p-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
+            <label className="block text-xs text-[#7A5A3F] mb-1.5 tracking-wider">
+              社員番号
+            </label>
             <input
               type="number"
               inputMode="numeric"
-              placeholder="社員番号"
+              placeholder="例: 1"
               {...register('employeeNumber')}
-              className="w-full h-10 px-3 text-sm border border-[#CCCCCC] rounded focus:outline-none focus:border-[#0AB4CC] focus:ring-1 focus:ring-[#0AB4CC] transition-colors placeholder:text-[#AAAAAA]"
+              className="w-full h-11 px-4 text-sm bg-[#FAF6EE] border border-[#D4BC92] rounded-lg focus:outline-none focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#8B5A2B]/20 transition-colors placeholder:text-[#B5A38A]"
             />
             {errors.employeeNumber && (
               <p className="text-xs text-red-500 mt-1">{errors.employeeNumber.message}</p>
@@ -78,11 +81,14 @@ export default function LoginPage() {
           </div>
 
           <div>
+            <label className="block text-xs text-[#7A5A3F] mb-1.5 tracking-wider">
+              パスワード
+            </label>
             <input
               type="password"
-              placeholder="パスワード"
+              placeholder="••••••••"
               {...register('password')}
-              className="w-full h-10 px-3 text-sm border border-[#CCCCCC] rounded focus:outline-none focus:border-[#0AB4CC] focus:ring-1 focus:ring-[#0AB4CC] transition-colors placeholder:text-[#AAAAAA]"
+              className="w-full h-11 px-4 text-sm bg-[#FAF6EE] border border-[#D4BC92] rounded-lg focus:outline-none focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#8B5A2B]/20 transition-colors placeholder:text-[#B5A38A]"
             />
             {errors.password && (
               <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>
@@ -90,21 +96,27 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p className="text-xs text-red-500 bg-red-50 rounded px-3 py-2">{error}</p>
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-10 bg-[#0AB4CC] hover:bg-[#0099B0] text-white text-sm font-semibold rounded transition-colors disabled:opacity-60"
+            className="w-full h-11 bg-[#8B5A2B] hover:bg-[#704620] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60 tracking-wider"
+            style={{ fontFamily: 'var(--font-kreon)' }}
           >
-            {loading ? 'ログイン中...' : 'ログイン'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#888] mt-5">
-          ログインできない方は管理者へお問い合わせください
-        </p>
+        <div className="mt-6 pt-5 border-t border-[#EFE3CB]">
+          <p className="text-center text-xs text-[#9B7A5A] leading-relaxed">
+            ログインできない方は<br />
+            管理者へお問い合わせください
+          </p>
+        </div>
       </div>
     </div>
   )
