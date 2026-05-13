@@ -198,7 +198,10 @@ export default function ShiftPeriodDetailPage() {
         fetchPeriod()
         fetchCandidates()
       } else {
-        setGenerateResult(`エラー: ${data.error}`)
+        const detail = Array.isArray(data.detail) && data.detail.length > 0
+          ? '\n\n' + data.detail.slice(0, 15).join('\n')
+          : ''
+        setGenerateResult(`エラー: ${data.error}${detail}`)
       }
     } catch {
       setGenerateResult('生成に時間がかかっています。ページをリロードしてください。')
@@ -453,8 +456,8 @@ export default function ShiftPeriodDetailPage() {
       </div>
 
       {generateResult && (
-        <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
-          generateResult.startsWith('エラー') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+        <div className={`mb-4 px-4 py-2 rounded-lg text-sm whitespace-pre-wrap font-mono ${
+          generateResult.startsWith('エラー') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700'
         }`}>
           {generateResult}
         </div>
