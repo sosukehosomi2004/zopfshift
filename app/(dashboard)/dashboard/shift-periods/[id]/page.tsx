@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, Play, Check, Download } from 'lucide-react'
 import Link from 'next/link'
 import { ShiftGrid } from '@/components/shift/ShiftGrid'
+import { PageHelp } from '@/components/help/PageHelp'
 import { ShortageModal, type ShortageDetail } from '@/components/shift/ShortageModal'
 import { exportShiftToExcel } from '@/lib/export-shift-excel'
 import {
@@ -266,7 +267,79 @@ export default function ShiftPeriodDetailPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{period.label}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">{period.label}</h1>
+            <PageHelp title={`シフト期間 (${STATUS_LABELS[period.status]}) - ヘルプ`}>
+              <h3>シフト期間の4つの状態</h3>
+              <p>ステータスごとにできる操作が変わります。今は <strong>{STATUS_LABELS[period.status]}</strong> 状態です。</p>
+              <ul>
+                <li><strong>下書き (DRAFT)</strong>: 申請承認・事前確定セル編集・自動生成の準備期間</li>
+                <li><strong>レビュー中 (REVIEW)</strong>: 候補5件から1つ選んで確定</li>
+                <li><strong>手動調整 (ADJUSTING)</strong>: 候補を確定した後、セルを手動で編集できる</li>
+                <li><strong>確定 (CONFIRMED)</strong>: シフト確定済み、編集不可 (確定取消で戻せる)</li>
+              </ul>
+
+              <h3>📝 下書き状態でやること</h3>
+              <p>シフト自動生成の<strong>事前準備</strong>を行う段階です。下書きページには2つのセクションがあります:</p>
+              <ol>
+                <li>
+                  <strong>申請一覧</strong> - スタッフから届いた休み申請の処理
+                  <ul>
+                    <li>「承認」「却下」「未処理に戻す」の3つの操作</li>
+                    <li>承認すると自動的に下のシフト表で「休み確定」セルが作られる</li>
+                    <li>未処理 (PENDING) のままだとシフト生成できない (赤い警告が出る)</li>
+                  </ul>
+                </li>
+                <li>
+                  <strong>事前確定セル</strong> - シフト生成前に「この人はこの日この場所」と固定したいセルを指定
+                  <ul>
+                    <li>セルをクリック → 編集モーダルで勤務場所/休み/メモ/色を設定</li>
+                    <li>通年ルール (毎週木曜休み等) が登録されている場合は自動的に展開される</li>
+                    <li>休み確定セル → 自動生成で動かさない (固定休み)</li>
+                    <li>出勤確定セル → 自動生成でその勤務場所に固定される</li>
+                    <li><strong>L (特殊勤務地) の割り当てはここで設定</strong> - 自動生成は L に誰も配置しないので、事前確定で人を指定する必要がある</li>
+                  </ul>
+                </li>
+              </ol>
+
+              <h3>シフト生成ボタンを押す前のチェックリスト</h3>
+              <ol>
+                <li>未処理 (PENDING) の申請を全部「承認」または「却下」したか</li>
+                <li>確定したい固定休み・固定勤務をセルクリックで設定したか</li>
+                <li>準備OK → 右上の「シフト生成」ボタンを押す (1〜2分かかる)</li>
+              </ol>
+
+              <h3>🔍 レビュー中でやること</h3>
+              <p>自動生成された5候補が表示されます。違反数 (SOFT違反) が少ない順に並んでいます。</p>
+              <ul>
+                <li>各候補タブをクリックして内容比較</li>
+                <li>SOFT違反パネル (オレンジ) の項目をクリックすると、該当セルへハイライト</li>
+                <li>採用したい候補で「候補を確定」ボタンを押す → 手動調整モードへ</li>
+              </ul>
+
+              <h3>✏ 手動調整でやること</h3>
+              <p>確定候補のセルを直接編集できます。生成し直したい場合は「再生成」も可能。</p>
+              <ul>
+                <li>セルクリック → 編集モーダル (勤務場所変更/休みに/メモ/色)</li>
+                <li>「移動」スロット行は工場員などが他勤務地に出ているのを表す</li>
+                <li>違反パネルの項目クリックで「配置候補」モーダルが出る (代替の人を提案)</li>
+                <li>調整完了したら「シフトを確定」ボタンで CONFIRMED へ</li>
+              </ul>
+
+              <h3>🔒 確定後にできること</h3>
+              <ul>
+                <li>Excel ダウンロード</li>
+                <li>「確定取消」で手動調整モードに戻して再編集</li>
+              </ul>
+
+              <h3>共通の便利機能</h3>
+              <ul>
+                <li><strong>Excel ダウンロード</strong>: 候補/確定シフトを色付きで Excel に出力</li>
+                <li><strong>シフト表の色ルール</strong>: 主な勤務地で出勤=無色、移動先=移動先の色、Lセル=赤、休み=「/」</li>
+                <li><strong>通し番号</strong>: 各勤務場所セクションで上から順に1, 2, 3... 自動採番</li>
+              </ul>
+            </PageHelp>
+          </div>
           <p className="text-sm text-gray-400">
             {period.startDate.split('T')[0]} 〜 {period.endDate.split('T')[0]}
             <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">

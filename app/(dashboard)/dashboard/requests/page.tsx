@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Check, X, RotateCcw } from 'lucide-react'
 import { RequestWindowManager } from '@/components/requests/RequestWindowManager'
+import { PageHelp } from '@/components/help/PageHelp'
 import { getPeriodRange, getFiscalMonthFromDate } from '@/lib/period-month'
 
 type DayOffRequest = {
@@ -135,7 +136,48 @@ export default function RequestsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">申請管理</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">申請管理</h1>
+            <PageHelp title="申請管理 - ヘルプ">
+              <h3>このページでできること</h3>
+              <ul>
+                <li>休み申請の承認・却下</li>
+                <li>申請受付ウィンドウ (締切・閾値・メッセージ) の管理</li>
+                <li>月度別・ステータス別の申請絞り込み</li>
+              </ul>
+
+              <h3>申請受付ウィンドウ (上部)</h3>
+              <ul>
+                <li>常に解放中のウィンドウが12個自動で開設される</li>
+                <li>各ウィンドウの<strong>締切</strong>を変更可能 (締切後はスタッフは申請不可)</li>
+                <li>「<strong>詳細設定</strong>」から:
+                  <ul>
+                    <li>警告閾値 (平日6/休日4 がデフォルト) - 達するとスタッフ画面に「希望者多数」表示</li>
+                    <li>個別日の閾値上書き (例: GW期間は10名で警告に変更)</li>
+                    <li>管理者メッセージ (期間付き) - スタッフの申請画面に黄色バナーで表示</li>
+                  </ul>
+                </li>
+              </ul>
+              <p><strong>申請ブロックはしない設計</strong> (労基法上の有休権侵害になるため)。閾値は「警告のみ」、メッセージで誘導するスタイル。</p>
+
+              <h3>申請一覧の操作</h3>
+              <ol>
+                <li>月度ナビ ◀ ▶ で対象月度を切り替え</li>
+                <li>「全て / 承認待ち / 承認済 / 却下」でフィルタ</li>
+                <li>各行の右側で「承認」「却下」「未処理に戻す」</li>
+              </ol>
+
+              <h3>承認時の自動連携</h3>
+              <ul>
+                <li>該当日のシフト期間が既に生成済みなら警告 → 確認後に承認</li>
+                <li>承認すると、その日のシフト割当が「休み」に自動変更</li>
+                <li>該当期間の事前確定セルにも「休み確定」が追加される</li>
+              </ul>
+
+              <h3>承認取消時の連携</h3>
+              <p>承認済みを却下/未処理に戻すと、自動で作られた事前確定セルが取り消されます。シフト表のその日は再度割り当てが必要になることに注意。</p>
+            </PageHelp>
+          </div>
           {pendingCount > 0 && (
             <p className="text-sm text-yellow-600 mt-1">{pendingCount}件の承認待ちがあります</p>
           )}

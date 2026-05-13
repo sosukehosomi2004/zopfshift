@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Plus, Search, Factory, Coffee, Store, Briefcase, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, ShieldCheck } from 'lucide-react'
 import { EmployeeFormModal } from '@/components/employee/EmployeeFormModal'
 import { EmployeeSkillModal } from '@/components/employee/EmployeeSkillModal'
+import { PageHelp } from '@/components/help/PageHelp'
 import { EmployeeRulesModal } from '@/components/employee/EmployeeRulesModal'
 import { EmployeeDeleteModal } from '@/components/employee/EmployeeDeleteModal'
 import { EmployeePasswordResetModal } from '@/components/employee/EmployeePasswordResetModal'
@@ -174,7 +175,77 @@ export default function EmployeesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">従業員管理</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">従業員管理</h1>
+          <PageHelp title="従業員管理 - ヘルプ">
+            <h3>このページでできること</h3>
+            <ul>
+              <li>従業員の登録・編集・退職処理</li>
+              <li>各従業員のスキル設定 (工場の窯/仕込/カフェのK/Sなど)</li>
+              <li>各従業員の<strong>個人ルール</strong> (毎週○曜日は休み等の通年設定)</li>
+              <li>主な勤務地・移動可能勤務地の設定</li>
+              <li>管理者権限の付与・解除</li>
+              <li>パスワードリセット</li>
+            </ul>
+            <h3>基本操作</h3>
+            <ol>
+              <li>右上「<strong>従業員を追加</strong>」で新規登録 (初期パスワードは password123)</li>
+              <li>行をクリックで詳細編集</li>
+              <li>「<strong>スキル</strong>」ボタンで習熟度 (◎/〇/▲) を設定</li>
+              <li>「<strong>ルール</strong>」ボタンで個人ルール (通年設定) を編集</li>
+              <li>退職する場合は <strong>退職日</strong>を入力 (退職日翌日以降は休み確定)</li>
+            </ol>
+
+            <h3>📅 個人ルール (通年の固定スケジュール)</h3>
+            <p>「毎週木曜は休み」「祝日は工場勤務」のように、ある条件を満たす日に<strong>休み or 出勤を自動で固定</strong>するルールです。シフト生成時に自動で展開され、その日付は<strong>事前確定セル</strong>として扱われます。</p>
+
+            <h4>設定できる条件タイプ</h4>
+            <ul>
+              <li><strong>曜日指定</strong>: 毎週○曜日 (例: 毎週木曜)。「祝日除く」のオプション付き</li>
+              <li><strong>日カテゴリ</strong>:
+                <ul>
+                  <li>祝日</li>
+                  <li>休日 (土日+祝日)</li>
+                  <li>平日 (月-金, 祝日除く)</li>
+                </ul>
+              </li>
+            </ul>
+
+            <h4>アクションタイプ</h4>
+            <ul>
+              <li><strong>常に休み (ALWAYS_OFF)</strong>: 該当日は必ず休みになる</li>
+              <li><strong>常に出勤 (ALWAYS_WORK)</strong>: 該当日は指定勤務場所で必ず出勤</li>
+            </ul>
+
+            <h4>使用例</h4>
+            <ul>
+              <li>毎週木曜は休み (祝日除く) → 木曜が祝日のときだけ出勤</li>
+              <li>平日 (月-金) は工場 → 平日は必ず工場勤務</li>
+              <li>祝日は休み → すべての祝日に固定休み</li>
+            </ul>
+
+            <h4>注意点</h4>
+            <ul>
+              <li>ルールは<strong>シフト期間作成時</strong>に自動で事前確定セルへ展開される</li>
+              <li>既に作られた期間の事前確定セルは、ルールを変えても自動更新されない (期間を再作成すれば反映)</li>
+              <li>休み申請が承認された場合、ルールより<strong>申請優先</strong>になる</li>
+              <li>事前確定セルを管理者が手動で取り消すと、その日はルール対象外になる</li>
+            </ul>
+
+            <h3>スキルと習熟度</h3>
+            <ul>
+              <li><strong>カフェ</strong>: ▲(LOW) のスタッフがいる日は ◎(HIGH) のスタッフも必須</li>
+              <li><strong>フロア</strong>: ▲(LOW) のスタッフは1日最大2名まで</li>
+              <li><strong>工場</strong>: 各ポジション (窯・仕込・前麺等) に対応スキルが必要</li>
+            </ul>
+            <h3>注意点</h3>
+            <ul>
+              <li>従業員を削除はできず、論理削除 (isActive=false) になる</li>
+              <li>パスワードリセットすると次回ログイン時に強制変更画面が出る</li>
+              <li>自分自身の管理者権限は外せない (ロックアウト防止)</li>
+            </ul>
+          </PageHelp>
+        </div>
         <button
           onClick={() => { setEditTarget(null); setShowForm(true) }}
           className="flex items-center gap-2 bg-[#0AB4CC] text-white px-4 py-2 rounded-lg hover:bg-[#099bb0] transition-colors text-sm font-medium"

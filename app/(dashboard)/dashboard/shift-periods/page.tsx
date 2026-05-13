@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, ChevronRight, Trash2, Play, Loader2 } from 'lucide-react'
+import { PageHelp } from '@/components/help/PageHelp'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getFiscalMonthFromDate, getPeriodRange, getMonthLabel } from '@/lib/period-month'
@@ -249,7 +250,77 @@ export default function ShiftPeriodsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">シフト管理</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">シフト管理</h1>
+          <PageHelp title="シフト管理 - ヘルプ">
+            <h3>⚠ 最初に読んでください: 生成方法の違い</h3>
+            <p>シフトの生成には2つの方法があり、<strong>反映される事前設定が異なります</strong>:</p>
+
+            <div className="overflow-x-auto my-3">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-3 py-2 text-left font-semibold">反映される項目</th>
+                    <th className="border border-gray-200 px-3 py-2 text-center font-semibold">複数月一括生成</th>
+                    <th className="border border-gray-200 px-3 py-2 text-center font-semibold">1ヶ月ずつ生成</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2">承認済みの休み申請</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-green-600">✓</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-green-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2">設定済みの個人通年ルール</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-green-600">✓</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-green-600">✓</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-200 px-3 py-2">手動の事前確定セル (Lの割当・固定休み等)</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-gray-400">×</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center text-green-600">✓</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p><strong>L の割当や手動で固定したいシフトがある月</strong>は、必ず1ヶ月ずつ単独で作成・生成してください。</p>
+
+            <h3>1ヶ月ずつ生成する手順</h3>
+            <ol>
+              <li>「新規シフト期間」で対象月を<strong>1つだけ</strong>選択して作成</li>
+              <li>自動で下書きページに遷移 → 事前確定セルや L を設定</li>
+              <li>申請を全て承認/却下</li>
+              <li>右上の「シフト生成」ボタンで自動生成</li>
+            </ol>
+            <p>事前確定不要・通常の月は複数月まとめて生成してOK。</p>
+
+            <h3>このページでできること</h3>
+            <ul>
+              <li>シフト期間の一覧表示・新規作成・削除</li>
+              <li>複数月をまとめて作成 → そのまま自動生成へ</li>
+              <li>下書き(DRAFT)状態の期間を選択して一括シフト生成</li>
+              <li>各期間の詳細ページへ移動</li>
+            </ul>
+            <h3>期間の状態</h3>
+            <ul>
+              <li><strong>下書き</strong>: 申請受付・事前確定セルの調整中、まだ自動生成していない</li>
+              <li><strong>レビュー中</strong>: 候補が複数生成されていて、確定前</li>
+              <li><strong>手動調整</strong>: 候補を確定して手動編集している段階</li>
+              <li><strong>確定</strong>: 最終確定、編集不可</li>
+            </ul>
+            <h3>基本操作</h3>
+            <ol>
+              <li><strong>新規シフト期間</strong>ボタン → 月度を複数選択して作成</li>
+              <li>1件のみ作成すると、その期間の下書きページに自動遷移</li>
+              <li>複数作成すると、申請確認モーダルが開いて一括生成できる</li>
+              <li>既存の下書き期間にチェックを入れると「一括シフト生成」ボタンが出る</li>
+            </ol>
+            <h3>削除について</h3>
+            <p>期間を削除すると候補・事前確定セルも全て削除されます。確定済みのシフトを削除するときは特に注意。</p>
+          </PageHelp>
+        </div>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 bg-[#0AB4CC] text-white px-4 py-2 rounded-lg hover:bg-[#099bb0] text-sm font-medium"

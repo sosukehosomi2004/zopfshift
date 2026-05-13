@@ -5,6 +5,7 @@ import { Save, Plus, Trash2 } from 'lucide-react'
 import { PasswordChangeForm } from '@/components/account/PasswordChangeForm'
 import { StaffingRulesEditor } from '@/components/settings/StaffingRulesEditor'
 import { RulesOverview } from '@/components/settings/RulesOverview'
+import { PageHelp } from '@/components/help/PageHelp'
 
 type MonthConfig = { month: number; holidayCount: number }
 type Holiday = { id: string; date: string; name: string }
@@ -72,7 +73,34 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">設定</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">設定</h1>
+        <PageHelp title="設定 - ヘルプ">
+          <h3>このページでできること</h3>
+          <ul>
+            <li>月別の公休数設定 (シフト生成時の最低公休日数)</li>
+            <li>勤務場所別の必要人数ルール設定 (平日/金曜/休日)</li>
+            <li>祝日マスタの管理 (シフト生成時に休日扱いする日)</li>
+            <li>制約ルールの一覧確認 (HARD制約・SOFT制約)</li>
+            <li>自分のパスワード変更</li>
+          </ul>
+          <h3>公休数について</h3>
+          <p>例: 5月度の公休数を8に設定すると、5月度のシフト生成時に各従業員は最低8日休みになります。HARD制約なので、満たさないとシフトは生成されません。</p>
+          <h3>必要人数ルール</h3>
+          <ul>
+            <li><strong>requiredCount</strong>: 1日あたりその勤務場所に必要な人数 (平日/金曜/休日で別設定可)</li>
+            <li><strong>minFullTimeCount</strong>: 最低正社員数 (フロアのみ)</li>
+            <li>シフト生成時に満たさないと SOFT 違反として表示</li>
+          </ul>
+          <h3>祝日マスタ</h3>
+          <p>シフト生成時に、祝日は休日と同じ扱いになります。自動で API から取得される祝日に加えて、振替休日などをここで追加可能。</p>
+          <h3>注意点</h3>
+          <ul>
+            <li>必要人数を変えても、既に生成されたシフトには影響しない (再生成すると反映)</li>
+            <li>制約ルール一覧は読み取り専用 (アプリのロジックに組み込み)</li>
+          </ul>
+        </PageHelp>
+      </div>
 
       {message && (
         <div className="bg-green-50 text-green-700 text-sm px-4 py-2 rounded-lg mb-4">{message}</div>
