@@ -459,7 +459,6 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 {dates.map((d) => {
                   const dateStr = formatDateStr(d)
                   const a = assignmentMap.get(`${emp.id}-${dateStr}`)
-                  const dow = d.getDay()
                   // 休み = assignment無し or workplace=null
                   const isOff = !a || !a.workplace
                   const isViolation = violationCells.has(`${emp.id}-${dateStr}`)
@@ -574,7 +573,6 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 {dates.map((d) => {
                   const dateStr = formatDateStr(d)
                   const a = assignmentMap.get(`${emp.id}-${dateStr}`)
-                  const dow = d.getDay()
                   const isOff = !a || !a.workplace
                   const isViolation = violationCells.has(`${emp.id}-${dateStr}`)
 
