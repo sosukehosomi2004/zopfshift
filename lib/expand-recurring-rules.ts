@@ -78,6 +78,78 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
   // upsertしたPreAssignmentもexistingKeysに反映 (二重作成防止)
   for (const k of Array.from(requestKeys)) existingKeys.add(k)
 
+  // ===== 前月度との接続による 5連勤回避の自動休み =====
+  // 前月が CONFIRMED で、月末まで連勤が続いている人は、当月初日 (21日) を強制休みにする。
+  // 後段の通年ルール展開より前に処理 → ルール ALWAYS_WORK より休みが優先される。
+  const MAX_CONSECUTIVE = 5
+  const prevPeriod = await prisma.shiftPeriod.findFirst({
+    where: {
+      endDate: { lt: period.startDate },
+      status: 'CONFIRMED',
+    },
+    orderBy: { endDate: 'desc' },
+    include: {
+      candidates: {
+        where: { isSelected: true },
+        take: 1,
+        include: {
+          assignments: { select: { employeeId: true, date: true, workplace: true } },
+        },
+      },
+    },
+  })
+  if (prevPeriod && prevPeriod.candidates[0]) {
+    const prevAssignments = prevPeriod.candidates[0].assignments
+    const workDatesByEmp = new Map<string, Set<string>>()
+    for (const a of prevAssignments) {
+      if (!a.workplace) continue // 休み・有休は連勤に含めない
+      const dStr = a.date.toISOString().split('T')[0]
+      if (!workDatesByEmp.has(a.employeeId)) workDatesByEmp.set(a.employeeId, new Set())
+      workDatesByEmp.get(a.employeeId)!.add(dStr)
+    }
+    // 当月初日 (= 前月末日 + 1) と前月末日を取得
+    const newFirstDate = new Date(period.startDate)
+    const newFirstDateStr = newFirstDate.toISOString().split('T')[0]
+    const lastDay = new Date(prevPeriod.endDate)
+
+    // 全アクティブ従業員を対象
+    const activeEmployees = await prisma.employee.findMany({
+      where: { isActive: true },
+      select: { id: true },
+    })
+    for (const emp of activeEmployees) {
+      const workSet = workDatesByEmp.get(emp.id) ?? new Set()
+      // 前月末日から遡って連勤数をカウント
+      let consecutive = 0
+      const cursor = new Date(lastDay)
+      for (let i = 0; i < MAX_CONSECUTIVE; i++) {
+        const dStr = cursor.toISOString().split('T')[0]
+        if (workSet.has(dStr)) {
+          consecutive++
+        } else {
+          break
+        }
+        cursor.setDate(cursor.getDate() - 1)
+      }
+      if (consecutive >= MAX_CONSECUTIVE) {
+        const key = `${emp.id}|${newFirstDateStr}`
+        if (excludedKeys.has(key)) continue
+        if (existingKeys.has(key)) continue
+        // memo='連' は「前月からの5連勤回避による自動休み」を示すマーカー
+        await prisma.preAssignment.create({
+          data: {
+            shiftPeriodId,
+            employeeId: emp.id,
+            date: newFirstDate,
+            workplace: null,
+            memo: '連',
+          },
+        })
+        existingKeys.add(key)
+      }
+    }
+  }
+
   // 期間内の全日付を生成
   const dates: Date[] = []
   const cur = new Date(period.startDate)

@@ -355,11 +355,11 @@ export default function ShiftPeriodDetailPage() {
         <div className="flex gap-2">
           <button
             onClick={async () => {
-              // 未処理(PENDING)申請があればブロック
+              // 未処理(PENDING)申請も自動生成では休みとして考慮される。
+              // 「申請を全て処理してから生成」のブロックはせず、確認ダイアログのみ。
               const pendingCount = pendingRequests.filter((r) => r.status === 'PENDING').length
               if (pendingCount > 0) {
-                alert(`未処理の申請が${pendingCount}件あります。シフト生成前にすべて承認/却下してください。`)
-                return
+                if (!confirm(`未処理の申請が${pendingCount}件あります。\n自動生成では一旦すべて「休み」として扱われます。\n承認・拒否は手動調整段階で決定できます。\n\n続けますか？`)) return
               }
 
               // 手動調整中・確定済みの場合は破棄確認
@@ -583,6 +583,7 @@ export default function ShiftPeriodDetailPage() {
               allEmployees={allEmployees}
               holidays={holidays}
               preAssignedKeys={new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
+              pendingRequestKeys={new Set(pendingRequests.filter((r) => r.status === 'PENDING').map((r) => `${r.employee.id}-${r.date.split('T')[0]}`))}
               editable
               onEdit={async ({ employeeId, date, workplace, memo, color, clear }) => {
                 if (clear) {

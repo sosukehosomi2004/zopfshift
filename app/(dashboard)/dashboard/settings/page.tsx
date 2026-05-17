@@ -116,7 +116,7 @@ export default function SettingsPage() {
             <button onClick={() => setFiscalYear((y) => y + 1)} className="px-2 py-1 text-sm border rounded hover:bg-gray-50">&gt;</button>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mb-4">各月のシフト期間（21日〜翌20日）における公休日数を設定します</p>
+        <p className="text-xs text-gray-400 mb-4">各月のシフト期間（前月21日〜当月20日）における公休日数を設定します</p>
 
         <div className="grid grid-cols-4 gap-3 mb-4">
           {months.map((m) => (

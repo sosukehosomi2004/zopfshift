@@ -98,6 +98,8 @@ export type GeneratorInput = {
   candidateCount: number // 生成する候補数
   allowUnderstaffing?: boolean // trueの場合、定数違反を許容（後の移動で補填）
   preAssignments?: PreAssignmentInput[] // 事前確定セル
+  // 前月末からの連勤数 (employeeId → 連続出勤日数)。5連勤制約の月跨ぎ判定で使用。
+  initialConsecutiveWork?: Record<string, number>
   targetValid?: number // HARD違反0件の候補をこの数集める (default: 1000)
   maxAttempts?: number // 最大試行回数 (default: 5000)
 }

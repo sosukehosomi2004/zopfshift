@@ -39,6 +39,7 @@ const WORKPLACE_LABELS: Record<string, string> = {
   FACTORY: '工場',
   CAFE: 'カフェ',
   FLOOR: 'フロア',
+  L: 'L',
   OFFICE: '事務',
   OTHER: 'その他',
 }
@@ -47,8 +48,19 @@ const WORKPLACE_ICONS: Record<string, React.ElementType> = {
   FACTORY: Factory,
   CAFE: Coffee,
   FLOOR: Store,
+  L: Store,
   OFFICE: Briefcase,
   OTHER: MoreHorizontal,
+}
+
+// シフト表 (ShiftGrid) と同じ色対応。アイコン/バッジ用の薄い背景
+const WORKPLACE_BG: Record<string, string> = {
+  FACTORY: 'bg-[#0AB4CC]/15 text-[#0AB4CC]',
+  CAFE: 'bg-yellow-200 text-yellow-800',
+  FLOOR: 'bg-green-200 text-green-800',
+  L: 'bg-red-200 text-red-800',
+  OFFICE: 'bg-purple-100 text-purple-800',
+  OTHER: 'bg-stone-200 text-stone-700',
 }
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
@@ -352,7 +364,7 @@ export default function EmployeesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5 text-gray-700">
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${WORKPLACE_BG[emp.primaryWorkplace] ?? 'bg-gray-100 text-gray-700'}`}>
                         <Icon className="w-3.5 h-3.5" />
                         {WORKPLACE_LABELS[emp.primaryWorkplace]}
                       </span>
@@ -381,7 +393,7 @@ export default function EmployeesPage() {
                       {emp.secondaryWorkplaces.length > 0 ? (
                         <div className="flex gap-1">
                           {emp.secondaryWorkplaces.map((sw) => (
-                            <span key={sw.workplace} className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                            <span key={sw.workplace} className={`text-xs px-1.5 py-0.5 rounded font-medium ${WORKPLACE_BG[sw.workplace] ?? 'bg-gray-100 text-gray-600'}`}>
                               {WORKPLACE_LABELS[sw.workplace]}
                             </span>
                           ))}

@@ -35,15 +35,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   })
 
   // 承認 → 却下/PENDING に変更: 承認で生成された事前確定セルを取り消す
+  // 該当日・該当従業員の workplace=null セルを削除 (申請由来のセルのみ。memo の値で識別可)
   let revertedPreAssignments = 0
   if (before.status === 'APPROVED' && parsed.data.status !== 'APPROVED') {
-    const memoLabel = updated.type === 'PAID_LEAVE' ? '有休' : '公休'
+    const memoMatch = before.type === 'PAID_LEAVE' ? '有' : null
     const reverted = await prisma.preAssignment.deleteMany({
       where: {
         employeeId: updated.employeeId,
         date: updated.date,
         workplace: null,
-        memo: { startsWith: memoLabel },
+        memo: memoMatch,
       },
     })
     revertedPreAssignments = reverted.count
@@ -81,8 +82,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       },
       select: { id: true },
     })
-    const memoLabel = updated.type === 'PAID_LEAVE' ? '有休' : '公休'
-    const memo = updated.memo ? `${memoLabel}: ${updated.memo}` : memoLabel
+    // セル表記は規約上「有」(有休) または null (公休→"/"表示) のみ。
+    // 申請者のメモ内容はシフト表に出さない (申請管理画面で確認する想定)。
+    const memo = updated.type === 'PAID_LEAVE' ? '有' : null
     for (const p of periods) {
       // Exclusion が残っていれば解除 (申請承認は強い意思表示なので優先)
       await prisma.preAssignmentExclusion.deleteMany({

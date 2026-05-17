@@ -10,13 +10,14 @@ export function checkConsecutiveWorkDays(
   workDays: Set<string>, // 出勤日セット
   dayOffs: DayOffInput[],
   maxConsecutive: number,
+  initialConsecutive = 0, // 前月末からの連勤数 (月跨ぎ判定用)
 ): string[] {
   const violations: string[] = []
   const paidLeaveDates = new Set(
     dayOffs.filter((d) => d.employeeId === employeeId && d.type === 'PAID_LEAVE').map((d) => d.date)
   )
 
-  let consecutive = 0
+  let consecutive = initialConsecutive
   for (const di of dateInfos) {
     if (paidLeaveDates.has(di.date)) {
       // 有休 → リセット

@@ -151,9 +151,11 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
     const startDate = formatDate(new Date(period.startDate))
     const endDate = formatDate(new Date(period.endDate))
 
+    // 自動生成では PENDING (未処理) 申請も APPROVED と同様に休みとして扱う。
+    // 承認/拒否は手動調整段階で確定する運用想定。
     const dayOffsRaw = await prisma.dayOffRequest.findMany({
       where: {
-        status: 'APPROVED',
+        status: { in: ['APPROVED', 'PENDING'] },
         date: { gte: new Date(startDate), lte: new Date(endDate) },
       },
     })
@@ -234,6 +236,55 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
     })
     const holidayCount = holidayConfig?.holidayCount ?? 8
 
+    // 前月度が CONFIRMED の場合、月末からの連勤数を計算して引き継ぐ。
+    // expand-recurring-rules.ts で 5連勤の人は当月初日が強制休みになるので
+    // ここでは < 5 の人にも値を渡しておく（後続日が3連勤の場合の挙動を正しくするため）。
+    const initialConsecutiveWork: Record<string, number> = {}
+    const prevPeriod = await prisma.shiftPeriod.findFirst({
+      where: { endDate: { lt: new Date(startDate) }, status: 'CONFIRMED' },
+      orderBy: { endDate: 'desc' },
+      include: {
+        candidates: {
+          where: { isSelected: true },
+          take: 1,
+          include: {
+            assignments: { select: { employeeId: true, date: true, workplace: true } },
+          },
+        },
+      },
+    })
+    if (prevPeriod && prevPeriod.candidates[0]) {
+      const prevAssignments = prevPeriod.candidates[0].assignments
+      const workDatesByEmp = new Map<string, Set<string>>()
+      for (const a of prevAssignments) {
+        if (!a.workplace) continue
+        const dStr = formatDate(new Date(a.date))
+        if (!workDatesByEmp.has(a.employeeId)) workDatesByEmp.set(a.employeeId, new Set())
+        workDatesByEmp.get(a.employeeId)!.add(dStr)
+      }
+      const MAX_CONSECUTIVE = 5
+      const lastDay = new Date(prevPeriod.endDate)
+      const allActiveEmps = await prisma.employee.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      })
+      for (const emp of allActiveEmps) {
+        const workSet = workDatesByEmp.get(emp.id) ?? new Set()
+        let consecutive = 0
+        const cursor = new Date(lastDay)
+        for (let i = 0; i < MAX_CONSECUTIVE; i++) {
+          const dStr = formatDate(cursor)
+          if (workSet.has(dStr)) {
+            consecutive++
+          } else {
+            break
+          }
+          cursor.setDate(cursor.getDate() - 1)
+        }
+        if (consecutive > 0) initialConsecutiveWork[emp.id] = consecutive
+      }
+    }
+
     const resultsByWorkplace: Record<Workplace, CandidateOutput[]> = {
       FACTORY: [],
       CAFE: [],
@@ -307,6 +358,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         candidateCount: CANDIDATE_COUNT,
         allowUnderstaffing: workplace !== 'FACTORY',
         preAssignments: preAssignmentInputs.filter((p) => employees.some((e) => e.id === p.employeeId)),
+        initialConsecutiveWork,
       }
 
       const result = generateShiftCandidates(input)
@@ -684,7 +736,8 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
 
       for (const emp of allEmployees) {
         const empWorkSet = new Set(merged.assignments.filter((a) => a.employeeId === emp.id).map((a) => a.date))
-        let consecutive = 0
+        // 前月末からの連勤数を初期値として使う (月跨ぎ5連勤判定)
+        let consecutive = initialConsecutiveWork[emp.id] ?? 0
         for (const d of allDates) {
           if (empWorkSet.has(d)) {
             consecutive++

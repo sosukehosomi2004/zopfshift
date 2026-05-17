@@ -21,7 +21,7 @@ const WP_LABEL: Record<Workplace, string> = { FACTORY: '工場', CAFE: 'カフ�
 const DAY_LABEL: Record<DayType, string> = {
   WEEKDAY_MON_THU: '平日 (月-木)',
   FRIDAY: '金曜',
-  HOLIDAY: '祝日 (土日含む)',
+  HOLIDAY: '休日 (土日・祝日)',
 }
 
 // FLOOR のみ minFullTimeCount を編集対象とする (現状の仕様)

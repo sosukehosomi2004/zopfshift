@@ -27,6 +27,7 @@ export function allocateHolidays(
   slots?: SlotInput[],
   allowUnderstaffing = false,
   preAssignments?: PreAssignmentInput[],
+  initialConsecutiveWork?: Record<string, number>,
 ): Map<string, Set<string>> {
   const totalDays = dateInfos.length
   const empCount = employees.length
@@ -136,7 +137,14 @@ export function allocateHolidays(
   const paidLeaveSet = new Map<number, Set<number>>()
 
   // 各従業員の連続出勤カウンター
+  // 前月末からの連勤数があれば初期値として使用 (月跨ぎの5連勤判定)
   const consecutiveWork = new Array(empCount).fill(0)
+  if (initialConsecutiveWork) {
+    for (const [empId, count] of Object.entries(initialConsecutiveWork)) {
+      const idx = empIdToIdx.get(empId)
+      if (idx !== undefined) consecutiveWork[idx] = count
+    }
+  }
   // 各従業員の連続休みカウンター（2連休促進用）
   const consecutiveRest = new Array(empCount).fill(0)
   // 各従業員の残り必要公休数

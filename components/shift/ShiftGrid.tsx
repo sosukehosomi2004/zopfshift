@@ -37,6 +37,7 @@ type Props = {
   allEmployees?: Employee[]
   holidays?: { date: string; name: string }[]
   preAssignedKeys?: Set<string> // `${empId}-${date}` の事前確定セル
+  pendingRequestKeys?: Set<string> // `${empId}-${date}` の未処理(PENDING)申請セル
   editable?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
   onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null; color: string | null; clear?: boolean }) => void | Promise<void>
@@ -94,7 +95,7 @@ function formatDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEmployeesProp, holidays, preAssignedKeys, editable, staffingRules, onEdit }: Props) {
+export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEmployeesProp, holidays, preAssignedKeys, pendingRequestKeys, editable, staffingRules, onEdit }: Props) {
   const holidaySet = useMemo(() => {
     const set = new Set<string>()
     if (holidays) for (const h of holidays) set.add(h.date.split('T')[0])
@@ -258,6 +259,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
             assignmentMap={assignmentMap}
             holidaySet={holidaySet}
             preAssignedKeys={preAssignedKeys}
+            pendingRequestKeys={pendingRequestKeys}
             editable={editable}
             staffingRules={staffingRules}
             violationCells={violations.cells}
@@ -292,6 +294,7 @@ type WorkplaceTableProps = {
   assignmentMap: Map<string, Assignment>
   holidaySet: Set<string>
   preAssignedKeys?: Set<string>
+  pendingRequestKeys?: Set<string>
   editable?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
   violationCells: Set<string>
@@ -304,7 +307,7 @@ function isHoliday(date: Date, holidaySet: Set<string>): boolean {
   return holidaySet.has(formatDateStr(date))
 }
 
-function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
+function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
   const empStats = useMemo(() => {
     const stats = new Map<string, { workDays: number; offDays: number }>()
     for (const emp of employees) {
@@ -465,17 +468,17 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   let cellBg = ''
                   let cellText = ''
 
+                  let isSlash = false
+                  // memo='連' は前月末からの5連勤回避マーカー。表示はしないが、警告判定用に保持。
+                  const displayMemo = a?.memo === '連' ? null : a?.memo
                   if (isOff) {
-                    if (a?.memo) {
-                      cellContent = a.memo
+                    if (displayMemo) {
+                      cellContent = displayMemo
                       cellText = 'text-gray-700'
                     } else {
-                      cellContent = '/'
-                      cellText = 'text-gray-300'
+                      cellContent = ''
+                      isSlash = true
                     }
-                    const isHol = holidaySet.has(dateStr)
-                    if (dow === 0 || isHol) cellBg = 'bg-red-50/50'
-                    else if (dow === 6) cellBg = 'bg-blue-50/50'
                   } else if (a) {
                     // 本人の主な勤務地と同じなら無色（自勤務）、違えば移動先の色を表示
                     if (a.workplace === a.employee.primaryWorkplace) {
@@ -483,10 +486,12 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     } else {
                       cellBg = CELL_COLOR_BY_WORKPLACE[a.workplace] ?? 'bg-gray-100'
                     }
-                    if (a.memo) {
-                      cellContent = a.memo
+                    if (displayMemo) {
+                      cellContent = displayMemo
                     } else if (a.workplace === 'L') {
                       cellContent = 'L'
+                    } else if (a.workplace === 'FLOOR' && a.employee.primaryWorkplace !== 'FLOOR') {
+                      cellContent = '店'
                     } else {
                       const seq = seqMap.get(`${emp.id}-${dateStr}`)
                       if (seq !== undefined) cellContent = String(seq)
@@ -498,15 +503,23 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   }
 
                   const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
+                  const isPending = pendingRequestKeys?.has(`${emp.id}-${dateStr}`) ?? false
 
                   return (
                     <td key={dateStr}
                       onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
-                      className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
+                      className={`relative border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
                       } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
-                      }`}>
+                      } ${isPending && !isPreAssigned ? 'outline outline-2 outline-black outline-offset-[-2px]' : ''}`}>
+                      {isSlash && (
+                        <span aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <svg width="100%" height="100%" viewBox="0 0 24 24" preserveAspectRatio="none">
+                            <line x1="2" y1="22" x2="22" y2="2" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      )}
                       {cellContent}
                     </td>
                   )
@@ -538,10 +551,12 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 }
                 const number = primaryWorking + slotIdx + 1
                 const cellBg = CELL_COLOR_BY_WORKPLACE[workplace] ?? 'bg-gray-100'
+                // 移動先表では通し番号を振る (「店」表記は本人の所属表のセル側で表示)
+                const content = String(number)
                 return (
                   <td key={dateStr}
                     className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg}`}>
-                    {number}
+                    {content}
                   </td>
                 )
               })}
@@ -566,28 +581,30 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   let cellContent = ''
                   let cellBg = ''
                   let cellText = ''
+                  let isSlash = false
 
+                  // memo='連' は前月末からの5連勤回避マーカー。表示はしないが、警告判定用に保持。
+                  const displayMemo = a?.memo === '連' ? null : a?.memo
                   if (isOff) {
-                    if (a?.memo) {
-                      cellContent = a.memo
+                    if (displayMemo) {
+                      cellContent = displayMemo
                       cellText = 'text-gray-700'
                     } else {
-                      cellContent = '/'
-                      cellText = 'text-gray-300'
+                      cellContent = ''
+                      isSlash = true
                     }
-                    const isHol = holidaySet.has(dateStr)
-                    if (dow === 0 || isHol) cellBg = 'bg-red-50/50'
-                    else if (dow === 6) cellBg = 'bg-blue-50/50'
                   } else if (a) {
                     if (a.workplace === a.employee.primaryWorkplace) {
                       cellBg = ''
                     } else {
                       cellBg = CELL_COLOR_BY_WORKPLACE[a.workplace] ?? 'bg-gray-100'
                     }
-                    if (a.memo) {
-                      cellContent = a.memo
+                    if (displayMemo) {
+                      cellContent = displayMemo
                     } else if (a.workplace === 'L') {
                       cellContent = 'L'
+                    } else if (a.workplace === 'FLOOR' && a.employee.primaryWorkplace !== 'FLOOR') {
+                      cellContent = '店'
                     } else {
                       const seq = seqMap.get(`${emp.id}-${dateStr}`)
                       if (seq !== undefined) cellContent = String(seq)
@@ -598,15 +615,23 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   }
 
                   const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
+                  const isPending = pendingRequestKeys?.has(`${emp.id}-${dateStr}`) ?? false
 
                   return (
                     <td key={dateStr}
                       onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
-                      className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
+                      className={`relative border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
                       } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
-                      }`}>
+                      } ${isPending && !isPreAssigned ? 'outline outline-2 outline-black outline-offset-[-2px]' : ''}`}>
+                      {isSlash && (
+                        <span aria-hidden className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <svg width="100%" height="100%" viewBox="0 0 24 24" preserveAspectRatio="none">
+                            <line x1="2" y1="22" x2="22" y2="2" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      )}
                       {cellContent}
                     </td>
                   )
@@ -696,9 +721,16 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
   const [color, setColor] = useState<string | null>(currentColor ?? null)
   const [saving, setSaving] = useState(false)
 
+  // 「連」マーカー: 前月末から5連勤が続いており、この日は自動で休み確定された日。
+  // 出勤に変更すると 5連勤制約違反になるため、警告を出す。
+  // currentWorkplace は null または '' (休み) のどちらでも休みとして扱う
+  const isStreakRest = currentMemo === '連' && !currentWorkplace
+
   const handleClick = async (workplace: string | null) => {
     setSaving(true)
-    await onSave(workplace, memo || null, color)
+    // 出勤に変更する場合は「連」マーカーをクリアしてセル表示を正しく更新する
+    const nextMemo = isStreakRest && workplace ? null : (memo || null)
+    await onSave(workplace, nextMemo, color)
     setSaving(false)
   }
 
@@ -717,6 +749,13 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
         </div>
 
         <div className="text-xs text-gray-500 mb-2">基本勤務場所: {WORKPLACE_LABEL[primaryWorkplace]}</div>
+
+        {isStreakRest && (
+          <div className="mb-3 p-2.5 bg-red-50 border border-red-300 rounded-lg text-xs text-red-700">
+            <strong>⚠ 前月末から5連勤継続中</strong>
+            <p className="mt-1">前月末まで5連勤が続いているため、この日を出勤にすると6連勤となり <strong>5連勤制約違反</strong> になります。</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 mb-4">
           {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => {

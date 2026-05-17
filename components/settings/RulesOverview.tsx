@@ -23,7 +23,7 @@ const WP_LABEL: Record<string, string> = {
 const DAY_LABEL: Record<string, string> = {
   WEEKDAY_MON_THU: '平日',
   FRIDAY: '金曜',
-  HOLIDAY: '祝日',
+  HOLIDAY: '休日',
 }
 
 export function RulesOverview() {

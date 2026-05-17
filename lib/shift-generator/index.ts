@@ -103,6 +103,7 @@ function generateOneCandidate(
   const workDaysMap = allocateHolidays(
     employees, dateInfos, dayOffs, staffingRules,
     holidayCount, MAX_CONSECUTIVE, slots, input.allowUnderstaffing, input.preAssignments,
+    input.initialConsecutiveWork,
   )
 
   const { assignments, errors: slotErrors } = assignSlots(
@@ -114,7 +115,8 @@ function generateOneCandidate(
   // 連続勤務 + 公休数 はHARD
   for (const emp of employees) {
     const workDays = workDaysMap.get(emp.id) ?? new Set()
-    hardViolations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE))
+    const initialConsec = input.initialConsecutiveWork?.[emp.id] ?? 0
+    hardViolations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE, initialConsec))
     hardViolations.push(...checkHolidayCount(emp.id, dateInfos, workDays, dayOffs, holidayCount))
   }
 
