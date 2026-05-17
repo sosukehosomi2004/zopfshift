@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { generatePassword } from '@/lib/generate-password'
+import { nextEmployeeNumber } from '@/lib/employee-number'
 
 const createEmployeeSchema = z.object({
   lastName: z.string().min(1),
@@ -68,8 +69,11 @@ export async function POST(req: NextRequest) {
   const initialPassword = generatePassword()
   const hashedPassword = await bcrypt.hash(initialPassword, 10)
 
+  const employeeNumber = await nextEmployeeNumber(data.employmentType, data.primaryWorkplace)
+
   const employee = await prisma.employee.create({
     data: {
+      employeeNumber,
       lastName: data.lastName,
       firstName: data.firstName,
       lastNameRomaji: data.lastNameRomaji,

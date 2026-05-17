@@ -13,7 +13,7 @@ type Assignment = {
   color?: string | null
   employee: {
     id: string
-    employeeNumber: number
+    employeeNumber: string
     lastName: string
     firstName: string
     employmentType: string
@@ -23,7 +23,7 @@ type Assignment = {
 
 type Employee = {
   id: string
-  employeeNumber: number
+  employeeNumber: string
   lastName: string
   firstName: string
   employmentType: string
@@ -154,7 +154,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
       if (a.employmentType !== b.employmentType) {
         return a.employmentType === 'FULL_TIME' ? -1 : 1
       }
-      return a.employeeNumber - b.employeeNumber
+      return a.employeeNumber.localeCompare(b.employeeNumber)
     })
   }, [assignments, allEmployeesProp])
 

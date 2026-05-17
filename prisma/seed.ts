@@ -10,6 +10,19 @@ const prisma = new PrismaClient({ adapter })
 
 const SNAPSHOT_DIR = join(process.cwd(), 'prisma', 'seed-data')
 
+// 初期データ生成モード用の社員番号採番カウンタ (雇用形態×勤務場所ごと)
+const TYPE_PREFIX: Record<EmploymentType, string> = { FULL_TIME: 'F', PART_TIME: 'P' }
+const WORKPLACE_PREFIX: Record<Workplace, string> = {
+  FACTORY: 'F', CAFE: 'C', FLOOR: 'H', OFFICE: 'O', OTHER: 'X', L: 'L',
+}
+const seedCounters = new Map<string, number>()
+function seedEmployeeNumber(employmentType: EmploymentType, workplace: Workplace): string {
+  const prefix = `${TYPE_PREFIX[employmentType]}${WORKPLACE_PREFIX[workplace]}`
+  const next = (seedCounters.get(prefix) ?? 0) + 1
+  seedCounters.set(prefix, next)
+  return `${prefix}${String(next).padStart(3, '0')}`
+}
+
 async function deleteAll() {
   await prisma.notification.deleteMany()
   await prisma.shiftAssignment.deleteMany()
@@ -50,7 +63,7 @@ async function restoreFromSnapshot() {
 
   // 2) Employee + 関連
   const employees: Array<{
-    id: string; employeeNumber: number; lastName: string; firstName: string;
+    id: string; employeeNumber: string; lastName: string; firstName: string;
     lastNameRomaji: string; firstNameRomaji: string; password: string;
     mustChangePassword: boolean; role: string; employmentType: string;
     primaryWorkplace: string; floorProficiency: string | null;
@@ -172,6 +185,7 @@ async function main() {
   // ===== 管理者 =====
   await prisma.employee.create({
     data: {
+      employeeNumber: seedEmployeeNumber(EmploymentType.FULL_TIME, Workplace.OFFICE),
       lastName: '管理',
       firstName: '太郎',
       lastNameRomaji: 'Kanri',
@@ -342,6 +356,7 @@ async function main() {
     const data = factoryEmployees[i]
     const emp = await prisma.employee.create({
       data: {
+        employeeNumber: seedEmployeeNumber(EmploymentType.FULL_TIME, Workplace.FACTORY),
         lastName: data.lastName,
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
@@ -449,6 +464,7 @@ async function main() {
     const data = cafeEmployees[i]
     const emp = await prisma.employee.create({
       data: {
+        employeeNumber: seedEmployeeNumber(data.employmentType as EmploymentType, Workplace.CAFE),
         lastName: data.lastName,
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
@@ -568,6 +584,7 @@ async function main() {
     const data = floorEmployees[i]
     const emp = await prisma.employee.create({
       data: {
+        employeeNumber: seedEmployeeNumber(data.employmentType as EmploymentType, Workplace.FLOOR),
         lastName: data.lastName,
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
@@ -620,6 +637,7 @@ async function main() {
     const data = officeEmployees[i]
     const emp = await prisma.employee.create({
       data: {
+        employeeNumber: seedEmployeeNumber(EmploymentType.PART_TIME, Workplace.OFFICE),
         lastName: data.lastName,
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,
@@ -654,6 +672,7 @@ async function main() {
     const data = otherEmployees[i]
     const emp = await prisma.employee.create({
       data: {
+        employeeNumber: seedEmployeeNumber(EmploymentType.PART_TIME, Workplace.OTHER),
         lastName: data.lastName,
         firstName: data.firstName,
         lastNameRomaji: data.lastNameRomaji,

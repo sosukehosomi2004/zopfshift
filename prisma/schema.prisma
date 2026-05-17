@@ -9,7 +9,9 @@ datasource db {
 // ===== 従業員 =====
 model Employee {
   id              String         @id @default(cuid())
-  employeeNumber  Int            @unique @default(autoincrement())
+  // 雇用形態(F=正社員/P=パート) + 勤務場所(F=工場/C=カフェ/H=フロア/O=事務/X=その他) + 通し3桁。
+  // 例: FF001, PC003。退職者は旧番号(数字のみ)のまま残ることがある。
+  employeeNumber  String         @unique
   lastName        String
   firstName       String
   lastNameRomaji  String

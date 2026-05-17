@@ -5,7 +5,7 @@ import { X, KeyRound, Eye, EyeOff, RefreshCw } from 'lucide-react'
 
 type Employee = {
   id: string
-  employeeNumber: number
+  employeeNumber: string
   lastName: string
   firstName: string
 }

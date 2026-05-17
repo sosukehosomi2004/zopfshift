@@ -49,7 +49,7 @@ type Candidate = {
     color?: string | null
     employee: {
       id: string
-      employeeNumber: number
+      employeeNumber: string
       lastName: string
       firstName: string
       employmentType: string

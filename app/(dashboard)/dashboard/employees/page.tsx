@@ -19,7 +19,7 @@ type Skill = {
 
 type Employee = {
   id: string
-  employeeNumber: number
+  employeeNumber: string
   lastName: string
   firstName: string
   lastNameRomaji: string
@@ -93,7 +93,7 @@ export default function EmployeesPage() {
   const [rulesTarget, setRulesTarget] = useState<Employee | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null)
   const [passwordTarget, setPasswordTarget] = useState<Employee | null>(null)
-  const [createdInfo, setCreatedInfo] = useState<{ employeeNumber: number; lastName: string; firstName: string; initialPassword: string } | null>(null)
+  const [createdInfo, setCreatedInfo] = useState<{ employeeNumber: string; lastName: string; firstName: string; initialPassword: string } | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('employeeNumber')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
@@ -139,7 +139,7 @@ export default function EmployeesPage() {
         const q = search.toLowerCase()
         const name = `${emp.lastName}${emp.firstName}`.toLowerCase()
         const romaji = `${emp.lastNameRomaji}${emp.firstNameRomaji}`.toLowerCase()
-        return name.includes(q) || romaji.includes(q) || String(emp.employeeNumber).includes(q)
+        return name.includes(q) || romaji.includes(q) || emp.employeeNumber.toLowerCase().includes(q)
       }
       return true
     })
@@ -147,7 +147,7 @@ export default function EmployeesPage() {
     const compare = (a: Employee, b: Employee): number => {
       switch (sortKey) {
         case 'employeeNumber':
-          return a.employeeNumber - b.employeeNumber
+          return a.employeeNumber.localeCompare(b.employeeNumber)
         case 'name': {
           const an = `${a.lastNameRomaji}${a.firstNameRomaji}`.toLowerCase()
           const bn = `${b.lastNameRomaji}${b.firstNameRomaji}`.toLowerCase()
@@ -169,7 +169,7 @@ export default function EmployeesPage() {
     return [...base].sort((a, b) => {
       const v = compare(a, b)
       // 同値なら社員番号で安定ソート
-      if (v === 0) return a.employeeNumber - b.employeeNumber
+      if (v === 0) return a.employeeNumber.localeCompare(b.employeeNumber)
       return sortDir === 'asc' ? v : -v
     })
   }, [employees, activeTab, search, sortKey, sortDir])

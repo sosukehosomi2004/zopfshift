@@ -20,7 +20,7 @@ export type EmployeeSkillInput = {
 /** 従業員データ（生成エンジン入力用） */
 export type EmployeeInput = {
   id: string
-  employeeNumber: number
+  employeeNumber: string
   lastName: string
   firstName: string
   employmentType: EmploymentType

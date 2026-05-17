@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { authConfig } from '@/lib/auth.config'
 
 const loginSchema = z.object({
-  employeeNumber: z.coerce.number().int().positive(),
+  employeeNumber: z.string().min(1).max(20),
   password: z.string().min(6),
 })
 

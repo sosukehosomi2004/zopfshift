@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 const schema = z.object({
-  employeeNumber: z.string().regex(/^\d+$/, '社員番号は数字で入力してください').min(1, '社員番号を入力してください'),
+  employeeNumber: z.string().min(1, '社員番号を入力してください').max(20),
   password: z.string().min(6, 'パスワードは6文字以上です'),
 })
 
@@ -69,9 +69,10 @@ export default function LoginPage() {
               社員番号
             </label>
             <input
-              type="number"
-              inputMode="numeric"
-              placeholder="例: 1"
+              type="text"
+              autoCapitalize="characters"
+              autoComplete="username"
+              placeholder="例: FF001"
               {...register('employeeNumber')}
               className="w-full h-11 px-4 text-sm bg-[#FAF6EE] border border-[#D4BC92] rounded-lg focus:outline-none focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#8B5A2B]/20 transition-colors placeholder:text-[#B5A38A]"
             />

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { CheckCircle, Copy, X } from 'lucide-react'
 
 type Props = {
-  employeeNumber: number
+  employeeNumber: string
   lastName: string
   firstName: string
   initialPassword: string

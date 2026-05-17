@@ -22,7 +22,7 @@ type Props = {
   onClose: () => void
   onSaved: () => void
   onResetPassword?: () => void
-  onCreated?: (initialPassword: string, employee: { lastName: string; firstName: string; employeeNumber: number }) => void
+  onCreated?: (initialPassword: string, employee: { lastName: string; firstName: string; employeeNumber: string }) => void
   currentUserId?: string
 }
 
