@@ -95,6 +95,16 @@ function formatDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+// 日曜の右端 = 週の区切り。太い右ボーダーを返す。
+function weekDividerClass(d: Date): string {
+  return d.getDay() === 0 ? 'border-r-2 border-r-gray-400' : ''
+}
+
+// 行を2行ごとにグルーピング: 2,4,6行目の下に太いボーダー
+function rowBandClass(rowIdx: number): string {
+  return (rowIdx + 1) % 2 === 0 ? 'border-b-2 border-b-gray-400' : ''
+}
+
 export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEmployeesProp, holidays, preAssignedKeys, pendingRequestKeys, editable, staffingRules, onEdit }: Props) {
   const holidaySet = useMemo(() => {
     const set = new Set<string>()
@@ -420,7 +430,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               const isRed = dow === 0 || isHol
               return (
                 <th key={d.toISOString()}
-                  className={`border border-gray-200 px-0 py-1 text-center font-semibold min-w-[30px] ${
+                  className={`border border-gray-200 ${weekDividerClass(d)} px-0 py-1 text-center font-semibold min-w-[30px] ${
                     isRed ? 'bg-red-50 text-red-500' : dow === 6 ? 'bg-blue-50 text-blue-500' : 'bg-white text-gray-700'
                   }`}>
                   {d.getDate()}
@@ -437,7 +447,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               const isRed = dow === 0 || isHol
               return (
                 <th key={`dow-${d.toISOString()}`}
-                  className={`border border-gray-200 px-0 py-0.5 text-center font-normal ${
+                  className={`border border-gray-200 ${weekDividerClass(d)} px-0 py-0.5 text-center font-normal ${
                     isRed ? 'bg-red-50 text-red-400' : dow === 6 ? 'bg-blue-50 text-blue-400' : 'bg-white text-gray-400'
                   }`}>
                   {DAY_NAMES[dow]}
@@ -449,11 +459,18 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
         </thead>
         <tbody>
           {/* 正社員 → 移動者スロット → パート の順 */}
-          {employees.filter((e) => e.employmentType === 'FULL_TIME').map((emp) => {
+          {(() => {
+            const ftEmps = employees.filter((e) => e.employmentType === 'FULL_TIME')
+            const ptEmps = employees.filter((e) => e.employmentType !== 'FULL_TIME')
+            const ftCount = ftEmps.length
+            return <>
+          {ftEmps.map((emp, ftIdx) => {
+            const rowIdx = ftIdx
+            const rowBand = rowBandClass(rowIdx)
             const stats = empStats.get(emp.id)
             return (
               <tr key={emp.id}>
-                <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1.5 font-medium text-gray-800 whitespace-nowrap">
+                <td className={`sticky left-0 z-10 bg-white border border-gray-200 ${rowBand} px-2 py-1.5 font-medium text-gray-800 whitespace-nowrap`}>
                   {emp.lastName}
                 </td>
                 {dates.map((d) => {
@@ -507,7 +524,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   return (
                     <td key={dateStr}
                       onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
-                      className={`relative border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
+                      className={`relative border border-gray-200 ${weekDividerClass(d)} ${rowBand} px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
                       } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
@@ -523,23 +540,26 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     </td>
                   )
                 })}
-                <td className="border border-gray-200 px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50">
+                <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
                   {stats?.offDays ?? 0}
                 </td>
               </tr>
             )
           })}
           {/* 移動者用の匿名スロット行 (期間中の最大移動人数だけ表示) - 正社員とパートの間 */}
-          {Array.from({ length: maxMovedIn }).map((_, slotIdx) => (
+          {Array.from({ length: maxMovedIn }).map((_, slotIdx) => {
+            const rowIdx = ftCount + slotIdx
+            const rowBand = rowBandClass(rowIdx)
+            return (
             <tr key={`moved-${slotIdx}`}>
-              <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1.5 text-gray-400 italic whitespace-nowrap">
+              <td className={`sticky left-0 z-10 bg-white border border-gray-200 ${rowBand} px-2 py-1.5 text-gray-400 italic whitespace-nowrap`}>
                 移動 {slotIdx + 1}
               </td>
               {dates.map((d) => {
                 const dateStr = formatDateStr(d)
                 const movedCount = movedInPerDay.get(dateStr) ?? 0
                 if (slotIdx >= movedCount) {
-                  return <td key={dateStr} className="border border-gray-200" />
+                  return <td key={dateStr} className={`border border-gray-200 ${weekDividerClass(d)} ${rowBand}`} />
                 }
                 // 通し番号: 正社員 primary 出勤者数 + slotIdx + 1
                 let primaryWorking = 0
@@ -554,20 +574,23 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 const content = String(number)
                 return (
                   <td key={dateStr}
-                    className={`border border-gray-200 px-0 py-1.5 text-center ${cellBg}`}>
+                    className={`border border-gray-200 ${weekDividerClass(d)} ${rowBand} px-0 py-1.5 text-center ${cellBg}`}>
                     {content}
                   </td>
                 )
               })}
-              <td className="border border-gray-200 px-2 py-1.5 bg-gray-50" />
+              <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 bg-gray-50`} />
             </tr>
-          ))}
+            )
+          })}
           {/* パート従業員 */}
-          {employees.filter((e) => e.employmentType !== 'FULL_TIME').map((emp) => {
+          {ptEmps.map((emp, ptIdx) => {
+            const rowIdx = ftCount + maxMovedIn + ptIdx
+            const rowBand = rowBandClass(rowIdx)
             const stats = empStats.get(emp.id)
             return (
               <tr key={emp.id}>
-                <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1.5 font-medium text-gray-600 whitespace-nowrap">
+                <td className={`sticky left-0 z-10 bg-white border border-gray-200 ${rowBand} px-2 py-1.5 font-medium text-gray-600 whitespace-nowrap`}>
                   {emp.lastName}
                 </td>
                 {dates.map((d) => {
@@ -618,7 +641,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   return (
                     <td key={dateStr}
                       onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
-                      className={`relative border border-gray-200 px-0 py-1.5 text-center ${cellBg} ${cellText} ${
+                      className={`relative border border-gray-200 ${weekDividerClass(d)} ${rowBand} px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
                       } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
@@ -634,12 +657,14 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     </td>
                   )
                 })}
-                <td className="border border-gray-200 px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50">
+                <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
                   {stats?.offDays ?? 0}
                 </td>
               </tr>
             )
           })}
+          </>
+          })()}
           <tr className="border-t-2 border-gray-300">
             <td className="sticky left-0 z-10 bg-gray-100 border border-gray-200 px-2 py-1.5 font-semibold text-gray-600 whitespace-nowrap">
               出勤数
@@ -650,7 +675,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               const dow = d.getDay()
               return (
                 <td key={`count-${dateStr}`}
-                  className={`border border-gray-200 px-0 py-1.5 text-center font-semibold ${
+                  className={`border border-gray-200 ${weekDividerClass(d)} px-0 py-1.5 text-center font-semibold ${
                     (dow === 0 || holidaySet.has(dateStr)) ? 'bg-red-50' : dow === 6 ? 'bg-blue-50' : 'bg-gray-100'
                   } text-gray-700`}>
                   {count}
@@ -669,7 +694,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               const dow = d.getDay()
               return (
                 <td key={`help-${dateStr}`}
-                  className={`border border-gray-200 px-0 py-1.5 text-center font-semibold ${
+                  className={`border border-gray-200 ${weekDividerClass(d)} px-0 py-1.5 text-center font-semibold ${
                     (dow === 0 || holidaySet.has(dateStr)) ? 'bg-red-50' : dow === 6 ? 'bg-blue-50' : 'bg-gray-100'
                   } ${count > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
                   {count > 0 ? count : '-'}
