@@ -264,6 +264,9 @@ model ShiftPeriod {
   endDate   DateTime     @db.Date
   label     String
   status    PeriodStatus @default(DRAFT)
+  // シフト生成押下直前の PreAssignment 状態のスナップショット
+  // 「下書きに戻す」で復元するために保持。型: [{employeeId, date, workplace, memo, color}]
+  draftSnapshot Json?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 

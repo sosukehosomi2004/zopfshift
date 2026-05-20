@@ -141,7 +141,24 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
     return { ok: false, error: 'Not found', detail: [] }
   }
 
-  await prisma.shiftPeriod.update({ where: { id: periodId }, data: { status: 'GENERATING' } })
+  // シフト生成前に現在の PreAssignment 状態をスナップショット保存
+  // 「下書きに戻す」操作で生成前の状態に復元するため
+  const snapshotPas = await prisma.preAssignment.findMany({
+    where: { shiftPeriodId: periodId },
+    select: { employeeId: true, date: true, workplace: true, memo: true, color: true },
+  })
+  const draftSnapshot = snapshotPas.map((p) => ({
+    employeeId: p.employeeId,
+    date: p.date.toISOString().slice(0, 10),
+    workplace: p.workplace,
+    memo: p.memo,
+    color: p.color,
+  }))
+
+  await prisma.shiftPeriod.update({
+    where: { id: periodId },
+    data: { status: 'GENERATING', draftSnapshot },
+  })
 
   try {
     // 生成のたびに最新の承認済み申請・通年ルールを PreAssignment に反映する。
