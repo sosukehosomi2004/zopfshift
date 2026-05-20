@@ -45,12 +45,26 @@ export function generateShiftCandidates(input: GeneratorInput): GeneratorOutput 
   const targetValid = input.targetValid ?? DEFAULT_TARGET_VALID
   const maxAttempts = input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
 
+  // 失敗候補の HARD 違反集計 (デバッグ用): 違反パターン → 件数
+  const violationCounter = new Map<string, number>()
+  let bestFailedCandidate: CandidateOutput | null = null
+
   // HARD違反0件の候補を最大 targetValid 件まで集める
   while (allValidCandidates.length < targetValid && attempts < maxAttempts) {
     attempts++
     const candidate = generateOneCandidate(allValidCandidates.length + 1, input, dateInfos)
     if (candidate.hardViolations.length === 0) {
       allValidCandidates.push(candidate)
+    } else {
+      // 違反パターンをカウント (具体的な日付・名前は伏せて分類)
+      for (const v of candidate.hardViolations) {
+        const key = v.replace(/\d{4}-\d{2}-\d{2}/g, 'YYYY-MM-DD')
+        violationCounter.set(key, (violationCounter.get(key) ?? 0) + 1)
+      }
+      // 違反数が最少の候補を保持 (失敗時のサンプル表示用)
+      if (!bestFailedCandidate || candidate.hardViolations.length < bestFailedCandidate.hardViolations.length) {
+        bestFailedCandidate = candidate
+      }
     }
   }
 
@@ -61,6 +75,20 @@ export function generateShiftCandidates(input: GeneratorInput): GeneratorOutput 
 
   if (allValidCandidates.length === 0) {
     errors.push(`${attempts}回試行: HARD違反のない候補が見つかりませんでした`)
+    // 頻出 HARD 違反パターン Top 5
+    const topPatterns = Array.from(violationCounter.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+    for (const [pattern, count] of topPatterns) {
+      errors.push(`  頻出違反: ${pattern} (${count}回)`)
+    }
+    // 最も惜しかった候補の HARD 違反サンプル
+    if (bestFailedCandidate) {
+      errors.push(`  最少違反候補 (${bestFailedCandidate.hardViolations.length}件):`)
+      for (const v of bestFailedCandidate.hardViolations.slice(0, 5)) {
+        errors.push(`    ${v}`)
+      }
+    }
   } else if (allValidCandidates.length < input.candidateCount) {
     errors.push(`${attempts}回試行して${allValidCandidates.length}候補のみ生成（目標${input.candidateCount}）`)
   }
