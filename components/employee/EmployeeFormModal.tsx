@@ -27,6 +27,9 @@ type Props = {
 }
 
 const WORKPLACES = ['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'] as const
+// 適性チェック対象 (移動可能な勤務地として明示設定が必要なもの)
+// L・OTHER・OFFICE は全員アサイン可能なので secondary 候補から除外
+const SECONDARY_WORKPLACES = ['FACTORY', 'CAFE', 'FLOOR'] as const
 const WORKPLACE_LABELS: Record<string, string> = {
   FACTORY: '工場',
   CAFE: 'カフェ',
@@ -253,8 +256,9 @@ export function EmployeeFormModal({ employee, onClose, onSaved, onResetPassword,
           {/* 移動可能な勤務場所 */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1">移動可能な勤務場所</label>
+            <p className="text-xs text-gray-400 mb-1.5">L・出勤・事務は全員アサイン可能なので選択不要</p>
             <div className="flex gap-2 flex-wrap">
-              {WORKPLACES.filter((wp) => wp !== primaryWorkplace).map((wp) => {
+              {SECONDARY_WORKPLACES.filter((wp) => wp !== primaryWorkplace).map((wp) => {
                 // パートは工場に移動不可
                 if (employmentType === 'PART_TIME' && wp === 'FACTORY') return null
                 return (

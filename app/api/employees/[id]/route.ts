@@ -10,7 +10,7 @@ const updateEmployeeSchema = z.object({
   firstNameRomaji: z.string().optional(),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME']).optional(),
   primaryWorkplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER']).optional(),
-  secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'])).optional(),
+  secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR'])).optional(),
   availableShiftTimes: z.array(z.enum(['EARLY', 'DAYTIME', 'CLOSE'])).optional(),
   isActive: z.boolean().optional(),
   role: z.enum(['ADMIN', 'STAFF']).optional(),

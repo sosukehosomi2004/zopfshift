@@ -13,7 +13,7 @@ const createEmployeeSchema = z.object({
   firstNameRomaji: z.string(),
   employmentType: z.enum(['FULL_TIME', 'PART_TIME']),
   primaryWorkplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER']),
-  secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR', 'OFFICE', 'OTHER'])).optional(),
+  secondaryWorkplaces: z.array(z.enum(['FACTORY', 'CAFE', 'FLOOR'])).optional(),
   availableShiftTimes: z.array(z.enum(['EARLY', 'DAYTIME', 'CLOSE'])).optional(),
 })
 

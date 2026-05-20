@@ -754,8 +754,8 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       for (const a of merged.assignments) {
         const emp = allEmpMap.get(a.employeeId)
         if (!emp) continue
-        // L は特殊な勤務地で、運用上は誰でも臨時配置されるため適性チェック対象外
-        if (a.workplace === 'L') continue
+        // L, OTHER, OFFICE は資格チェック対象外 (誰でも臨時配置可能)
+        if (a.workplace === 'L' || a.workplace === 'OTHER' || a.workplace === 'OFFICE') continue
         const allowedWorkplaces = new Set([emp.primaryWorkplace, ...emp.secondaryWorkplaces.map((sw) => sw.workplace)])
         if (!allowedWorkplaces.has(a.workplace)) {
           merged.hardViolations.push(`[適性] ${emp.lastName}: ${a.date}に${a.workplace}（資格なし）`)
