@@ -353,36 +353,50 @@ export default function ShiftPeriodDetailPage() {
 
         {/* アクションボタン */}
         <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              // 未処理(PENDING)申請も自動生成では休みとして考慮される。
-              // 「申請を全て処理してから生成」のブロックはせず、確認ダイアログのみ。
-              const pendingCount = pendingRequests.filter((r) => r.status === 'PENDING').length
-              if (pendingCount > 0) {
-                if (!confirm(`未処理の申請が${pendingCount}件あります。\n自動生成では一旦すべて「休み」として扱われます。\n承認・拒否は手動調整段階で決定できます。\n\n続けますか？`)) return
-              }
+          {period.status === 'DRAFT' ? (
+            <button
+              onClick={async () => {
+                // 未処理(PENDING)申請も自動生成では休みとして考慮される。
+                const pendingCount = pendingRequests.filter((r) => r.status === 'PENDING').length
+                if (pendingCount > 0) {
+                  if (!confirm(`未処理の申請が${pendingCount}件あります。\n自動生成では一旦すべて「休み」として扱われます。\n承認・拒否は手動調整段階で決定できます。\n\n続けますか？`)) return
+                }
 
-              // 手動調整中・確定済みの場合は破棄確認
-              if (period.status === 'ADJUSTING' || period.status === 'CONFIRMED') {
-                if (!confirm('再生成すると現在のシフトと手動編集は破棄されます。続けますか？')) return
-              }
+                // 事前確定の確認（任意なので）
+                const preCount = preAssignments.length
+                if (preCount > 0) {
+                  if (!confirm(`事前確定セル ${preCount}件を固定したままシフト生成します。続けますか？`)) return
+                } else {
+                  if (!confirm('事前確定セルがありません。このまま自動生成を実行しますか？')) return
+                }
 
-              // 事前確定の確認（任意なので）
-              const preCount = preAssignments.length
-              if (preCount > 0) {
-                if (!confirm(`事前確定セル ${preCount}件を固定したままシフト生成します。続けますか？`)) return
-              } else {
-                if (!confirm('事前確定セルがありません。このまま自動生成を実行しますか？')) return
-              }
-
-              await handleGenerate()
-            }}
-            disabled={generating}
-            className="flex items-center gap-2 bg-[#0AB4CC] text-white px-4 py-2 rounded-lg hover:bg-[#099bb0] text-sm font-medium disabled:opacity-50"
-          >
-            <Play className="w-4 h-4" />
-            {generating ? '生成中...' : (period.status === 'DRAFT' ? 'シフト生成' : '再生成')}
-          </button>
+                await handleGenerate()
+              }}
+              disabled={generating}
+              className="flex items-center gap-2 bg-[#0AB4CC] text-white px-4 py-2 rounded-lg hover:bg-[#099bb0] text-sm font-medium disabled:opacity-50"
+            >
+              <Play className="w-4 h-4" />
+              {generating ? '生成中...' : 'シフト生成'}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                if (!confirm('下書き状態に戻すと、現在の候補シフト・手動編集は破棄されます。\n事前確定セル (PreAssignment) は保持されます。\n\n続けますか？')) return
+                const res = await fetch(`/api/shift-periods/${id}/to-draft`, { method: 'POST' })
+                if (res.ok) {
+                  setGenerateResult(null)
+                  fetchPeriod()
+                  fetchCandidates()
+                } else {
+                  setGenerateResult('エラー: 下書きに戻せませんでした')
+                }
+              }}
+              disabled={generating}
+              className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm font-medium disabled:opacity-50"
+            >
+              下書きに戻す
+            </button>
+          )}
 
           {period.status === 'REVIEW' && candidates.length > 0 && (
             <button
