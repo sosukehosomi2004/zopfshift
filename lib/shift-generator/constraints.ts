@@ -11,12 +11,14 @@ export function checkConsecutiveWorkDays(
   dayOffs: DayOffInput[],
   maxConsecutive: number,
   initialConsecutive = 0, // 前月末からの連勤数 (月跨ぎ判定用)
+  displayName?: string,
 ): string[] {
   const violations: string[] = []
   const paidLeaveDates = new Set(
     dayOffs.filter((d) => d.employeeId === employeeId && d.type === 'PAID_LEAVE').map((d) => d.date)
   )
 
+  const who = displayName ?? employeeId
   let consecutive = initialConsecutive
   for (const di of dateInfos) {
     if (paidLeaveDates.has(di.date)) {
@@ -25,7 +27,7 @@ export function checkConsecutiveWorkDays(
     } else if (workDays.has(di.date)) {
       consecutive++
       if (consecutive > maxConsecutive) {
-        violations.push(`${employeeId}: ${di.date}時点で${consecutive}連勤（上限${maxConsecutive}日）`)
+        violations.push(`${who}: ${di.date}時点で${consecutive}連勤（上限${maxConsecutive}日）`)
       }
     } else {
       // 公休 → リセット
@@ -45,6 +47,7 @@ export function checkHolidayCount(
   workDays: Set<string>,
   dayOffs: DayOffInput[],
   requiredHolidayCount: number,
+  displayName?: string,
 ): string[] {
   const paidLeaveDates = new Set(
     dayOffs.filter((d) => d.employeeId === employeeId && d.type === 'PAID_LEAVE').map((d) => d.date)
@@ -57,8 +60,9 @@ export function checkHolidayCount(
     }
   }
 
+  const who = displayName ?? employeeId
   if (actualHolidayCount < requiredHolidayCount) {
-    return [`${employeeId}: 公休${actualHolidayCount}日（必要${requiredHolidayCount}日）`]
+    return [`${who}: 公休${actualHolidayCount}日（必要${requiredHolidayCount}日）`]
   }
   return []
 }

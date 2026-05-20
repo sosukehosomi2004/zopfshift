@@ -144,8 +144,9 @@ function generateOneCandidate(
   for (const emp of employees) {
     const workDays = workDaysMap.get(emp.id) ?? new Set()
     const initialConsec = input.initialConsecutiveWork?.[emp.id] ?? 0
-    hardViolations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE, initialConsec))
-    hardViolations.push(...checkHolidayCount(emp.id, dateInfos, workDays, dayOffs, holidayCount))
+    const displayName = emp.lastName
+    hardViolations.push(...checkConsecutiveWorkDays(emp.id, dateInfos, workDays, dayOffs, MAX_CONSECUTIVE, initialConsec, displayName))
+    hardViolations.push(...checkHolidayCount(emp.id, dateInfos, workDays, dayOffs, holidayCount, displayName))
   }
 
   const workplace = employees[0]?.primaryWorkplace
