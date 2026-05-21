@@ -818,32 +818,57 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         },
       })
 
-      if (candidate.assignments.length > 0) {
-        // PreAssignment の memo/color を保持して ShiftAssignment にコピー
-        const paLookup = new Map<string, { memo: string | null; color: string | null }>()
-        for (const pa of preAssignmentInputs) {
-          paLookup.set(`${pa.employeeId}|${pa.date}`, { memo: pa.memo ?? null, color: null })
-        }
-        // preAssignmentInputs は memo のみで color を持たないので、生 raw からも引く
-        for (const pa of preAssignmentsRaw) {
-          const dateStr = formatDate(new Date(pa.date))
-          paLookup.set(`${pa.employeeId}|${dateStr}`, { memo: pa.memo ?? null, color: pa.color ?? null })
-        }
-        await prisma.shiftAssignment.createMany({
-          data: candidate.assignments.map((a) => {
-            const pa = paLookup.get(`${a.employeeId}|${a.date}`)
-            return {
-              shiftCandidateId: created.id,
-              employeeId: a.employeeId,
-              date: new Date(a.date),
-              workplace: a.workplace,
-              workplaceSlotId: a.slotId,
-              isMoved: a.isMoved,
-              memo: pa?.memo ?? null,
-              color: pa?.color ?? null,
-            }
-          }),
+      // PreAssignment の memo/color を保持して ShiftAssignment にコピー
+      const paLookup = new Map<string, { memo: string | null; color: string | null; workplace: Workplace | null }>()
+      for (const pa of preAssignmentsRaw) {
+        const dateStr = formatDate(new Date(pa.date))
+        paLookup.set(`${pa.employeeId}|${dateStr}`, {
+          memo: pa.memo ?? null,
+          color: pa.color ?? null,
+          workplace: pa.workplace as Workplace | null,
         })
+      }
+
+      // 出勤セル (候補から)
+      const workingRecords = candidate.assignments.map((a) => {
+        const pa = paLookup.get(`${a.employeeId}|${a.date}`)
+        return {
+          shiftCandidateId: created.id,
+          employeeId: a.employeeId,
+          date: new Date(a.date),
+          workplace: a.workplace,
+          workplaceSlotId: a.slotId,
+          isMoved: a.isMoved,
+          memo: pa?.memo ?? null,
+          color: pa?.color ?? null,
+        }
+      })
+
+      // 休みセル: memo/color が付いてる PreAssignment は休み記録として作る
+      // (有給「有」マーカー等を候補シフトでも表示するため)
+      const workingKeys = new Set(
+        candidate.assignments.map((a) => `${a.employeeId}|${a.date}`),
+      )
+      const restRecords = preAssignmentsRaw
+        .filter((pa) => pa.workplace === null && (pa.memo || pa.color))
+        .filter((pa) => {
+          const dateStr = formatDate(new Date(pa.date))
+          return !workingKeys.has(`${pa.employeeId}|${dateStr}`)
+        })
+        .map((pa) => ({
+          shiftCandidateId: created.id,
+          employeeId: pa.employeeId,
+          date: pa.date,
+          workplace: null,
+          workplaceSlotId: null,
+          isMoved: false,
+          memo: pa.memo ?? null,
+          color: pa.color ?? null,
+        }))
+
+      const allRecords = [...workingRecords, ...restRecords]
+      if (allRecords.length > 0) {
+        await prisma.shiftAssignment.createMany({ data: allRecords })
       }
     }
 
