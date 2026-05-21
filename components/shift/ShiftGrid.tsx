@@ -319,14 +319,17 @@ function isHoliday(date: Date, holidaySet: Set<string>): boolean {
 
 function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
   const empStats = useMemo(() => {
-    const stats = new Map<string, { workDays: number; offDays: number }>()
+    const stats = new Map<string, { workDays: number; offDays: number; paidLeaveDays: number }>()
     for (const emp of employees) {
       let workDays = 0
+      let paidLeaveDays = 0
       for (const d of dates) {
         const a = assignmentMap.get(`${emp.id}-${formatDateStr(d)}`)
         if (a && a.workplace) workDays++ // workplace=null は休み
+        else if (a?.memo === '有') paidLeaveDays++ // 有給
       }
-      stats.set(emp.id, { workDays, offDays: dates.length - workDays })
+      // 公休 = 全日数 - 出勤 - 有休
+      stats.set(emp.id, { workDays, offDays: dates.length - workDays - paidLeaveDays, paidLeaveDays })
     }
     return stats
   }, [employees, dates, assignmentMap])
@@ -420,7 +423,8 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 {g.month}
               </th>
             ))}
-            <th className="border border-gray-200 px-2 py-1 bg-gray-50 text-gray-600 font-semibold text-center min-w-[50px]">休</th>
+            <th className="border border-gray-200 px-2 py-1 bg-gray-50 text-gray-600 font-semibold text-center min-w-[40px]">休</th>
+            <th className="border border-gray-200 px-2 py-1 bg-gray-50 text-gray-600 font-semibold text-center min-w-[40px]">有</th>
           </tr>
           <tr>
             <th className="sticky left-0 z-20 bg-white border border-gray-200 px-2 py-1" />
@@ -438,6 +442,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               )
             })}
             <th className="border border-gray-200 px-2 py-1 bg-gray-50" />
+            <th className="border border-gray-200 px-2 py-1 bg-gray-50" />
           </tr>
           <tr>
             <th className="sticky left-0 z-20 bg-white border border-gray-200 px-2 py-1" />
@@ -454,6 +459,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 </th>
               )
             })}
+            <th className="border border-gray-200 px-2 py-0.5 bg-gray-50" />
             <th className="border border-gray-200 px-2 py-0.5 bg-gray-50" />
           </tr>
         </thead>
@@ -543,6 +549,9 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
                   {stats?.offDays ?? 0}
                 </td>
+                <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
+                  {stats?.paidLeaveDays ?? 0}
+                </td>
               </tr>
             )
           })}
@@ -579,6 +588,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   </td>
                 )
               })}
+              <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 bg-gray-50`} />
               <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 bg-gray-50`} />
             </tr>
             )
@@ -660,6 +670,9 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
                   {stats?.offDays ?? 0}
                 </td>
+                <td className={`border border-gray-200 ${rowBand} px-2 py-1.5 text-center font-semibold text-gray-700 bg-gray-50`}>
+                  {stats?.paidLeaveDays ?? 0}
+                </td>
               </tr>
             )
           })}
@@ -683,6 +696,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               )
             })}
             <td className="border border-gray-200 bg-gray-100" />
+            <td className="border border-gray-200 bg-gray-100" />
           </tr>
           <tr>
             <td className="sticky left-0 z-10 bg-gray-100 border border-gray-200 px-2 py-1.5 font-semibold text-gray-600 whitespace-nowrap">
@@ -702,6 +716,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
               )
             })}
             <td className="border border-gray-200 bg-gray-100" />
+            <td className="border border-gray-200 bg-gray-100" />
           </tr>
           <tr>
             <td className="sticky left-0 z-10 bg-gray-100 border border-gray-200 px-2 py-1.5 font-semibold text-gray-600 whitespace-nowrap">
@@ -720,6 +735,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 </td>
               )
             })}
+            <td className="border border-gray-200 bg-gray-100" />
             <td className="border border-gray-200 bg-gray-100" />
           </tr>
         </tbody>
