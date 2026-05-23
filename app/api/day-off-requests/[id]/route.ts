@@ -34,10 +34,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     data: { status: parsed.data.status },
   })
 
-  // 承認 → 却下/PENDING に変更: 承認で生成された事前確定セルを取り消す
-  // 該当日・該当従業員の workplace=null セルを削除 (申請由来のセルのみ。memo の値で識別可)
+  // PENDING/APPROVED は休み確定として PreAssignment 化されている。
+  // REJECTED に変更されたら PreAssignment を取り消す。
   let revertedPreAssignments = 0
-  if (before.status === 'APPROVED' && parsed.data.status !== 'APPROVED') {
+  if (parsed.data.status === 'REJECTED' && before.status !== 'REJECTED') {
     const memoMatch = before.type === 'PAID_LEAVE' ? '有' : null
     const reverted = await prisma.preAssignment.deleteMany({
       where: {
@@ -50,10 +50,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     revertedPreAssignments = reverted.count
   }
 
-  // 承認時: 既存の確定済みシフトと事前確定セルに反映
+  // PENDING/APPROVED への変更時: 既存の確定済みシフトと事前確定セルに反映
+  // (REJECTED → PENDING/APPROVED の復活時にも PreAssignment を再作成する)
   let updatedAssignments = 0
   let upsertedPreAssignments = 0
-  if (parsed.data.status === 'APPROVED') {
+  if (parsed.data.status === 'APPROVED' || parsed.data.status === 'PENDING') {
     // 1) ShiftAssignment: workplace !== null (出勤) のものを 休み に変更
     const conflictingAssignments = await prisma.shiftAssignment.findMany({
       where: {
@@ -155,6 +156,17 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       )
     }
   }
+
+  // 申請由来の PreAssignment も削除 (memo の値で識別)
+  const memoMatch = existing.type === 'PAID_LEAVE' ? '有' : null
+  await prisma.preAssignment.deleteMany({
+    where: {
+      employeeId: existing.employeeId,
+      date: existing.date,
+      workplace: null,
+      memo: memoMatch,
+    },
+  })
 
   await prisma.dayOffRequest.delete({ where: { id } })
   return NextResponse.json({ success: true })

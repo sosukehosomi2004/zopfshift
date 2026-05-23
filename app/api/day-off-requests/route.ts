@@ -95,5 +95,35 @@ export async function POST(req: NextRequest) {
     },
   })
 
+  // 新規申請 (PENDING) も即時に PreAssignment(休み) として下書きに反映
+  // PAID_LEAVE は memo='有'、DAY_OFF は memo=null
+  const memo = parsed.data.type === 'PAID_LEAVE' ? '有' : null
+  const periods = await prisma.shiftPeriod.findMany({
+    where: { startDate: { lte: date }, endDate: { gte: date } },
+    select: { id: true },
+  })
+  for (const p of periods) {
+    await prisma.preAssignmentExclusion.deleteMany({
+      where: { shiftPeriodId: p.id, employeeId: session.user.id, date },
+    })
+    await prisma.preAssignment.upsert({
+      where: {
+        shiftPeriodId_employeeId_date: {
+          shiftPeriodId: p.id,
+          employeeId: session.user.id,
+          date,
+        },
+      },
+      update: { workplace: null, memo },
+      create: {
+        shiftPeriodId: p.id,
+        employeeId: session.user.id,
+        date,
+        workplace: null,
+        memo,
+      },
+    })
+  }
+
   return NextResponse.json(request, { status: 201 })
 }

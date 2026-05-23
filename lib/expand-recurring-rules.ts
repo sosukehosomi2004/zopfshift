@@ -43,12 +43,13 @@ export async function expandRecurringRules(shiftPeriodId: string): Promise<numbe
     exclusions.map((e) => `${e.employeeId}|${e.date.toISOString().split('T')[0]}`),
   )
 
-  // 承認済みの申請 — PreAssignment(休み)として upsert (まだ作られていない場合)
+  // 申請 — PreAssignment(休み)として upsert (まだ作られていない場合)
+  // PENDING / APPROVED ともに下書きに反映 (拒否されない限り休み確定として扱う)
   // ルール展開時にもこれらの日はスキップ (申請優先)
   const dayOffRequests = await prisma.dayOffRequest.findMany({
     where: {
       date: { gte: period.startDate, lte: period.endDate },
-      status: 'APPROVED',
+      status: { in: ['APPROVED', 'PENDING'] },
     },
     select: { employeeId: true, date: true, type: true, memo: true },
   })
