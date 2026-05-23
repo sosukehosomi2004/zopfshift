@@ -46,6 +46,8 @@ type Props = {
   holidaySet: Set<string>
   slots: SlotDef[]
   staffingRules: StaffingRule[]
+  // 事前確定セルの key Set (`${employeeId}|${YYYY-MM-DD}`)。該当する候補には警告タグが付く。
+  preAssignmentKeys?: Set<string>
   onPlace: (args: {
     employeeId: string
     date: string
@@ -73,6 +75,7 @@ export function ShortageModal({
   holidaySet,
   slots,
   staffingRules,
+  preAssignmentKeys,
   onPlace,
   onClose,
 }: Props) {
@@ -164,6 +167,7 @@ export function ShortageModal({
       emp: EmployeeLite
       currentWorkplace?: string
       hardWarnings: string[]
+      isPreAssigned: boolean
       softResolved: SoftViolation[]
       softCreated: SoftViolation[]
       score: number
@@ -257,10 +261,17 @@ export function ShortageModal({
       score += resolved.length * 50 - created.length * 30
       if (!currentWorkplace) score += 30 // 休み→出勤がベター
 
+      // 事前確定セルがあれば警告 + スコア大幅減 (動かすと管理者が固定した意図に反する)
+      const isPreAssigned = preAssignmentKeys?.has(`${emp.id}|${date}`) ?? false
+      if (isPreAssigned) {
+        score -= 500
+      }
+
       list.push({
         emp,
         currentWorkplace,
         hardWarnings,
+        isPreAssigned,
         softResolved: resolved,
         softCreated: created,
         score,
@@ -283,6 +294,7 @@ export function ShortageModal({
     holidaySet,
     slots,
     staffingRules,
+    preAssignmentKeys,
   ])
 
   const headerLabel = (() => {
@@ -325,7 +337,7 @@ export function ShortageModal({
           ) : (
             <div className="space-y-1">
               {candidates.map(
-                ({ emp, currentWorkplace, hardWarnings, softResolved, softCreated, targetSlotId }) => {
+                ({ emp, currentWorkplace, hardWarnings, isPreAssigned, softResolved, softCreated, targetSlotId }) => {
                   const hasHard = hardWarnings.length > 0
                   const hasNew = softCreated.length > 0
                   return (
@@ -348,14 +360,19 @@ export function ShortageModal({
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex items-center flex-wrap gap-1.5">
                           <span className="font-medium text-gray-900">
                             {emp.lastName} {emp.firstName}
                           </span>
-                          <span className="ml-2 text-xs text-gray-400">
+                          <span className="text-xs text-gray-400">
                             ({WP_LABEL[emp.primaryWorkplace] ?? emp.primaryWorkplace}
                             {emp.employmentType === 'PART_TIME' ? '・パート' : ''})
                           </span>
+                          {isPreAssigned && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-300">
+                              事前確定中
+                            </span>
+                          )}
                         </div>
                         <span
                           className={`text-xs px-2 py-0.5 rounded ${

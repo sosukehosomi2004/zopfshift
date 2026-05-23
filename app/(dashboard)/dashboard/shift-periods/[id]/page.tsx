@@ -855,6 +855,7 @@ export default function ShiftPeriodDetailPage() {
               holidaySet={new Set(holidays.map((h) => h.date.split('T')[0]))}
               slots={slots}
               staffingRules={staffingRules}
+              preAssignmentKeys={new Set(preAssignments.map((p) => `${p.employeeId}|${p.date.split('T')[0]}`))}
               onPlace={async ({ employeeId, date, workplace, workplaceSlotId }) => {
                 await fetch(`/api/shift-periods/${id}/assignments`, {
                   method: 'PATCH',
