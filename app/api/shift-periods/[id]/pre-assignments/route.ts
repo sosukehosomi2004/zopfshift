@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 const patchSchema = z.object({
   employeeId: z.string(),
   date: z.string(),
-  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']).nullable(),
+  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']).nullable(),
   memo: z.string().max(1).optional().nullable(),
   color: z.string().max(20).optional().nullable(),
   // 削除（事前確定をクリア）

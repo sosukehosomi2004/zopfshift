@@ -8,7 +8,7 @@ import { z } from 'zod'
 const patchSchema = z.object({
   employeeId: z.string(),
   date: z.string(),
-  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']).nullable(),
+  workplace: z.enum(['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']).nullable(),
   workplaceSlotId: z.string().nullable().optional(),
   memo: z.string().max(1).optional().nullable(),
   color: z.string().max(20).optional().nullable(),
