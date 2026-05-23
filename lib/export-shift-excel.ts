@@ -17,6 +17,7 @@ const WORKPLACE_HEX: Record<string, string> = {
   CAFE: 'FEF08A',   // bg-yellow-200
   FLOOR: 'BBF7D0',  // bg-green-200
   L: 'FECACA',      // bg-red-200
+  F: 'FFFFFF',      // 塗りつぶしなし (白)
   OFFICE: 'F3E8FF', // bg-purple-100
   OTHER: 'E7E5E4',  // bg-stone-200
 }
@@ -103,7 +104,7 @@ export function exportShiftToExcel(params: {
 
   // 移動者マップ
   const movedInPerDayByWp: Record<string, Map<string, number>> = {}
-  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']) {
+  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']) {
     const m = new Map<string, number>()
     for (const a of assignments) {
       if (a.workplace !== wp) continue
@@ -195,6 +196,7 @@ export function exportShiftToExcel(params: {
           fillHex = WORKPLACE_HEX[a.workplace]
           if (a.memo) cellValue = a.memo
           else if (a.workplace === 'L') cellValue = 'L'
+          else if (a.workplace === 'F') cellValue = 'F'
           else cellValue = ''
         }
       }
@@ -221,7 +223,7 @@ export function exportShiftToExcel(params: {
   }
 
   // 各勤務場所セクション
-  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']) {
+  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']) {
     const primary = allEmployees.filter((e) => e.primaryWorkplace === wp)
     const movedInMap = movedInPerDayByWp[wp]
     const maxMovedIn = Math.max(0, ...Array.from(movedInMap.values()))
@@ -248,7 +250,7 @@ export function exportShiftToExcel(params: {
       for (const emp of primary) {
         if (emp.employmentType !== 'FULL_TIME') continue
         const a = assignmentMap.get(`${emp.id}-${dStr}`)
-        if (a && a.workplace === wp && a.memo !== 'F') {
+        if (a && a.workplace === wp) {
           n++
           seqMap.set(`${emp.id}-${dStr}`, n)
         }
@@ -257,7 +259,7 @@ export function exportShiftToExcel(params: {
       for (const emp of primary) {
         if (emp.employmentType === 'FULL_TIME') continue
         const a = assignmentMap.get(`${emp.id}-${dStr}`)
-        if (a && a.workplace === wp && a.memo !== 'F') {
+        if (a && a.workplace === wp) {
           n++
           seqMap.set(`${emp.id}-${dStr}`, n)
         }
@@ -284,7 +286,7 @@ export function exportShiftToExcel(params: {
           let primaryWorking = 0
           for (const emp of ft) {
             const a = assignmentMap.get(`${emp.id}-${dStr}`)
-            if (a && a.workplace === wp && a.memo !== 'F') primaryWorking++
+            if (a && a.workplace === wp) primaryWorking++
           }
           const number = primaryWorking + slot + 1
           row.push({

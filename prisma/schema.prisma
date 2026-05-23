@@ -81,6 +81,7 @@ enum Workplace {
   CAFE
   FLOOR
   L
+  F       // フリー枠 (熟練者・新入りに与えられる。稼働人数には含めない)
   OFFICE
   OTHER
 }

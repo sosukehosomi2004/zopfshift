@@ -61,16 +61,19 @@ const WORKPLACE_LABEL: Record<string, string> = {
   CAFE: 'カフェ',
   FLOOR: 'フロア',
   L: 'L',
+  F: 'F',
   OFFICE: '事務',
   OTHER: '出勤',
 }
 
 // 勤務場所色 (薄めのパステル: -100〜-200 を基本)
+// F は塗りつぶし無し
 const CELL_COLOR_BY_WORKPLACE: Record<string, string> = {
   FACTORY: 'bg-[#0AB4CC]/15',
   CAFE: 'bg-yellow-200',
   FLOOR: 'bg-green-200',
   L: 'bg-red-200',
+  F: '',
   OFFICE: 'bg-purple-100',
   OTHER: 'bg-stone-200',
 }
@@ -80,6 +83,7 @@ const LEGEND_COLOR: Record<string, string> = {
   CAFE: 'bg-yellow-200 border-yellow-400',
   FLOOR: 'bg-green-200 border-green-400',
   L: 'bg-red-200 border-red-400',
+  F: 'bg-white border-gray-400',
   OFFICE: 'bg-purple-100 border-purple-300',
   OTHER: 'bg-stone-200 border-stone-400',
 }
@@ -204,7 +208,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     employees: Employee[]
     maxMovedIn: number
     movedInPerDay: Map<string, number>
-  }> = ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER'].map((wp) => {
+  }> = ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER'].map((wp) => {
     const primary = allEmployees.filter((e) => e.primaryWorkplace === wp)
     const movedInPerDay = new Map<string, number>()
     for (const a of assignments) {
@@ -244,7 +248,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
       {/* 凡例 */}
       <div className="flex flex-wrap gap-3 items-center text-xs">
         <span className="text-gray-500 font-medium">凡例:</span>
-        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => (
+        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OTHER'].map((wp) => (
           <span key={wp} className="flex items-center gap-1.5">
             <span className={`inline-block w-4 h-4 rounded border ${LEGEND_COLOR[wp]}`} />
             <span className="text-gray-700">{WORKPLACE_LABEL[wp]}</span>
@@ -336,8 +340,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
 
   // 各日付の通し番号: 正社員 → 移動者 → パート の順で 1, 2, 3...
   // 移動者の番号は別途スロット行で計算する。ここでは正社員とパートの分のみ。
-  // メモが "F" のセル（特殊ポジション）は番号を振らない (が出勤数にはカウント)
-  const isCounted = (a: Assignment | undefined): boolean => !!a && a.workplace === workplace && a.memo !== 'F'
+  const isCounted = (a: Assignment | undefined): boolean => !!a && a.workplace === workplace
   const seqMap = useMemo(() => {
     const map = new Map<string, number>()
     for (const d of dates) {
@@ -512,6 +515,8 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                       cellContent = displayMemo
                     } else if (a.workplace === 'L') {
                       cellContent = 'L'
+                    } else if (a.workplace === 'F') {
+                      cellContent = 'F'
                     } else if (a.workplace === 'FLOOR' && a.employee.primaryWorkplace !== 'FLOOR') {
                       cellContent = '店'
                     } else {
@@ -575,7 +580,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                 for (const emp of employees) {
                   if (emp.employmentType !== 'FULL_TIME') continue
                   const a = assignmentMap.get(`${emp.id}-${dateStr}`)
-                  if (a && a.workplace === workplace && a.memo !== 'F') primaryWorking++
+                  if (a && a.workplace === workplace) primaryWorking++
                 }
                 const number = primaryWorking + slotIdx + 1
                 const cellBg = CELL_COLOR_BY_WORKPLACE[workplace] ?? 'bg-gray-100'
@@ -634,6 +639,8 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                       cellContent = displayMemo
                     } else if (a.workplace === 'L') {
                       cellContent = 'L'
+                    } else if (a.workplace === 'F') {
+                      cellContent = 'F'
                     } else if (a.workplace === 'FLOOR' && a.employee.primaryWorkplace !== 'FLOOR') {
                       cellContent = '店'
                     } else {
@@ -797,7 +804,7 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
         )}
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => {
+          {['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OTHER'].map((wp) => {
             const selected = currentWorkplace === wp
             return (
               <button

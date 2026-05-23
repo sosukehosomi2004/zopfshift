@@ -13,7 +13,7 @@ const SNAPSHOT_DIR = join(process.cwd(), 'prisma', 'seed-data')
 // 初期データ生成モード用の社員番号採番カウンタ (雇用形態×勤務場所ごと)
 const TYPE_PREFIX: Record<EmploymentType, string> = { FULL_TIME: 'F', PART_TIME: 'P' }
 const WORKPLACE_PREFIX: Record<Workplace, string> = {
-  FACTORY: 'F', CAFE: 'C', FLOOR: 'H', OFFICE: 'O', OTHER: 'X', L: 'L',
+  FACTORY: 'F', CAFE: 'C', FLOOR: 'H', OFFICE: 'O', OTHER: 'X', L: 'L', F: 'R',
 }
 const seedCounters = new Map<string, number>()
 function seedEmployeeNumber(employmentType: EmploymentType, workplace: Workplace): string {

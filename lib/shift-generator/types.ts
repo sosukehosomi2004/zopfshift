@@ -3,7 +3,7 @@
 
 export type DayType = 'WEEKDAY_MON_THU' | 'FRIDAY' | 'HOLIDAY'
 
-export type Workplace = 'FACTORY' | 'CAFE' | 'FLOOR' | 'L' | 'OFFICE' | 'OTHER'
+export type Workplace = 'FACTORY' | 'CAFE' | 'FLOOR' | 'L' | 'F' | 'OFFICE' | 'OTHER'
 
 export type EmploymentType = 'FULL_TIME' | 'PART_TIME'
 
