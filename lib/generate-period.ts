@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { generateShiftCandidates } from '@/lib/shift-generator'
+import { generateShiftCandidatesV2, postProcessV2 } from '@/lib/shift-generator-v2'
+import { collectAnchors } from '@/lib/shift-generator-v2/anchors'
 import {
   GeneratorInput,
   SlotInput,
@@ -9,8 +11,13 @@ import {
   DayType,
   Workplace,
 } from '@/lib/shift-generator/types'
-import { formatDate } from '@/lib/shift-generator/utils'
+import { formatDate, buildDateInfos } from '@/lib/shift-generator/utils'
 import { expandRecurringRules } from '@/lib/expand-recurring-rules'
+
+// v2 (パターンベース + フィードバック) を使うかどうか。
+// 環境変数で切り替え可能 (デフォルトは v1)。
+// 本番では SHIFT_GENERATOR_V2=true を Vercel に設定すると有効化。
+const USE_V2 = process.env.SHIFT_GENERATOR_V2 === 'true'
 
 /**
  * 移動後の最終配置でスロット割当を再計算する。
@@ -379,10 +386,19 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         initialConsecutiveWork,
       }
 
-      const result = generateShiftCandidates(input)
+      // v2 を環境変数で切替。デフォルトは v1。
+      const result = USE_V2
+        ? generateShiftCandidatesV2(input)
+        : generateShiftCandidates(input)
       resultsByWorkplace[workplace] = result.candidates
       if (result.errors.length > 0) {
         allErrors.push(...result.errors.map((e) => `${workplace}: ${e}`))
+      }
+      if (USE_V2) {
+        const meta = (result as { meta?: { anchorCount: number; repairLog: string[] } }).meta
+        if (meta) {
+          console.log(`[v2:${workplace}] anchors=${meta.anchorCount}, repairs=${meta.repairLog.length}`)
+        }
       }
     }
 
