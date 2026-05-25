@@ -799,7 +799,141 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       const cafeFloorCount = merged.assignments.filter((a) => a.workplace === 'CAFE' || a.workplace === 'FLOOR').length
       merged.score = totalScore + cafeFloorCount
 
+      // ============================================================
+      // v2 ポスト処理: Phase 1 HARD修復 + Phase 2a/2b SOFT最適化
+      // ============================================================
+      if (USE_V2) {
+        const v2Anchors = collectAnchors({
+          startDate,
+          endDate,
+          employees: allEmployees.map((e) => ({
+            id: e.id,
+            employeeNumber: e.employeeNumber,
+            lastName: e.lastName,
+            firstName: e.firstName,
+            employmentType: e.employmentType as 'FULL_TIME' | 'PART_TIME',
+            primaryWorkplace: e.primaryWorkplace as Workplace,
+            secondaryWorkplaces: e.secondaryWorkplaces.map((sw) => sw.workplace as Workplace),
+            skillIds: e.skills.map((s) => s.skillId),
+          })),
+          skills: [],
+          slots: [],
+          staffingRules: allStaffingRules.map((r) => ({
+            workplace: r.workplace as Workplace,
+            dayType: r.dayType as 'WEEKDAY_MON_THU' | 'FRIDAY' | 'HOLIDAY',
+            requiredCount: r.requiredCount,
+            minFullTimeCount: r.minFullTimeCount,
+            baseFullTimeCount: r.baseFullTimeCount,
+          })),
+          dayOffs: dayOffInputs,
+          holidays: holidayInputs,
+          holidayCount,
+          candidateCount: 1,
+          preAssignments: preAssignmentInputs,
+          initialConsecutiveWork,
+        })
+        const v2DateInfos = dateInfos.map((di) => ({
+          date: di.date,
+          dayOfWeek: new Date(di.date).getDay(),
+          dayType: di.dayType,
+        }))
+        const v2Employees = allEmployees.map((e) => ({
+          id: e.id,
+          employeeNumber: e.employeeNumber,
+          lastName: e.lastName,
+          firstName: e.firstName,
+          employmentType: e.employmentType as 'FULL_TIME' | 'PART_TIME',
+          primaryWorkplace: e.primaryWorkplace as Workplace,
+          secondaryWorkplaces: e.secondaryWorkplaces.map((sw) => sw.workplace as Workplace),
+          skillIds: e.skills.map((s) => s.skillId),
+          skillsWithProficiency: e.skills.map((s) => ({ skillId: s.skillId, proficiency: s.proficiency })),
+          floorProficiency: e.floorProficiency,
+        }))
+        const v2StaffingRules = allStaffingRules.map((r) => ({
+          workplace: r.workplace as Workplace,
+          dayType: r.dayType as 'WEEKDAY_MON_THU' | 'FRIDAY' | 'HOLIDAY',
+          requiredCount: r.requiredCount,
+          minFullTimeCount: r.minFullTimeCount,
+          baseFullTimeCount: r.baseFullTimeCount,
+        }))
+        const post = postProcessV2({
+          employees: v2Employees,
+          dateInfos: v2DateInfos,
+          staffingRules: v2StaffingRules,
+          anchors: v2Anchors,
+          holidayCount,
+          initialConsecutive: initialConsecutiveWork,
+          assignments: merged.assignments,
+        })
+        merged.assignments = post.assignments
+        for (const phaseLog of post.logs) {
+          if (phaseLog.entries.length > 0) {
+            console.log(`[v2:postProcess:${phaseLog.phase}]`, phaseLog.entries.slice(0, 10))
+          }
+        }
+      }
+
       mergedCandidates.push(merged)
+    }
+
+    // v2 で SOFT 最適化後、各候補の HARD/SOFT を再評価する必要がある
+    // (postProcessV2 が assignments を書き換えたため)
+    if (USE_V2) {
+      const reCheckDates: string[] = []
+      {
+        const cur = new Date(startDate)
+        const end = new Date(endDate)
+        while (cur <= end) {
+          reCheckDates.push(formatDate(cur))
+          cur.setDate(cur.getDate() + 1)
+        }
+      }
+      for (const merged of mergedCandidates) {
+        merged.hardViolations = []
+        merged.violations = []
+        const dailyCount: Record<string, Record<string, number>> = {}
+        for (const a of merged.assignments) {
+          if (!a.workplace) continue
+          if (!dailyCount[a.date]) dailyCount[a.date] = {}
+          dailyCount[a.date][a.workplace] = (dailyCount[a.date][a.workplace] ?? 0) + 1
+        }
+        for (const d of reCheckDates) {
+          const dow = new Date(d).getDay()
+          const dayType = dow === 0 || dow === 6 ? 'HOLIDAY' : dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU'
+          for (const wp of WORKPLACES) {
+            const required = requiredOf(wp, dayType)
+            const actual = dailyCount[d]?.[wp] ?? 0
+            if (actual < required) {
+              merged.violations.push(`[${wp}] ${d}: ${actual}名（必要${required}名）`)
+            }
+          }
+        }
+        // 公休数 / 5連勤 再チェック
+        const workDaysByEmp = new Map<string, Set<string>>()
+        for (const a of merged.assignments) {
+          if (!a.workplace) continue
+          if (!workDaysByEmp.has(a.employeeId)) workDaysByEmp.set(a.employeeId, new Set())
+          workDaysByEmp.get(a.employeeId)!.add(a.date)
+        }
+        for (const emp of allEmployees) {
+          const wd = workDaysByEmp.get(emp.id) ?? new Set()
+          const restDays = reCheckDates.length - wd.size
+          if (restDays < holidayCount) {
+            merged.hardViolations.push(`[公休] ${emp.lastName}: 公休${restDays}日（最低${holidayCount}日）`)
+          }
+          // 5連勤再チェック
+          let consec = initialConsecutiveWork[emp.id] ?? 0
+          for (const d of reCheckDates) {
+            if (wd.has(d)) {
+              consec++
+              if (consec > 5) {
+                merged.hardViolations.push(`[5連勤] ${emp.lastName}: ${d}時点で${consec}連勤`)
+                break
+              }
+            } else consec = 0
+          }
+        }
+      }
     }
 
     const validCandidates = mergedCandidates.filter((c) => c.hardViolations.length === 0)
