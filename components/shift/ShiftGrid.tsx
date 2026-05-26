@@ -1020,16 +1020,20 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
           </button>
         </div>
 
-        {isPreAssigned && (
+        {(isPreAssigned || (batchCount && batchCount > 1)) && (
           <div className="mt-3 pt-3 border-t">
             <button
               disabled={saving}
               onClick={handleClear}
               className="w-full py-2 rounded-lg text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
-              事前確定を取り消す
+              {batchCount && batchCount > 1 ? `選択中 ${batchCount}セル の事前確定を取り消す` : '事前確定を取り消す'}
             </button>
-            <p className="text-xs text-gray-400 mt-1 text-center">この日は通常通り自動生成の対象になります</p>
+            <p className="text-xs text-gray-400 mt-1 text-center">
+              {batchCount && batchCount > 1
+                ? '事前確定のあるセルのみ取消されます。各セルは通常通り自動生成の対象になります'
+                : 'この日は通常通り自動生成の対象になります'}
+            </p>
           </div>
         )}
       </div>
