@@ -213,10 +213,18 @@ export function postProcessV2({
   let current = [...assignments]
   const paidLeaveKeys = buildPaidLeaveKeys(anchors)
 
-  // Step 3.5: クロスワークプレース移動 — 無効化
-  // 工場のシフトを乱さないよう、ここではヘルプ移動を行わない。
-  // 工場員の休み余剰によるヘルプ移動は generate-period.ts 内の
-  // 既存ロジック (tryAssign) が担当する。
+  // Step 3.5: クロスワークプレース移動
+  // 工場の出勤者が必要数を上回ってる日 (余り人員あり) について、
+  // カフェ・フロアの不足を埋めるために再配置する。
+  // 工場の必要数は厳守 (factoryCount > factoryRequired のみ移動可)。
+  // 注: 休みの工場員を「ヘルプ追加」するのは generate-period.ts 内の
+  //     v1 tryAssign が先に担当済み (このフェーズは余剰の再配置)。
+  const moved = applyCrossMove(
+    { employees, dateInfos, staffingRules, anchors },
+    current,
+  )
+  current = moved.assignments
+  logs.push({ phase: 'cross-move', entries: [`移動 ${moved.movedCount} 件`] })
 
   // Phase 1: HARD修復 (全体)
   const repaired = repairHard(
