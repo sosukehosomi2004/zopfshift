@@ -39,6 +39,9 @@ type Props = {
   preAssignedKeys?: Set<string> // `${empId}-${date}` の事前確定セル
   pendingRequestKeys?: Set<string> // `${empId}-${date}` の未処理(PENDING)申請セル
   editable?: boolean
+  // draft モード: assignment が無いセルは空欄表示 (スラッシュなし)
+  // false (デフォルト): assignment 無し = 自動生成の休み扱いでスラッシュ表示
+  draftMode?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
   onEdit?: (params: { employeeId: string; date: string; workplace: string | null; memo: string | null; color: string | null; clear?: boolean }) => void | Promise<void>
 }
@@ -109,7 +112,7 @@ function rowBandClass(rowIdx: number): string {
   return (rowIdx + 1) % 2 === 0 ? 'border-b-2 border-b-gray-400' : ''
 }
 
-export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEmployeesProp, holidays, preAssignedKeys, pendingRequestKeys, editable, staffingRules, onEdit }: Props) {
+export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEmployeesProp, holidays, preAssignedKeys, pendingRequestKeys, editable, draftMode, staffingRules, onEdit }: Props) {
   const holidaySet = useMemo(() => {
     const set = new Set<string>()
     if (holidays) for (const h of holidays) set.add(h.date.split('T')[0])
@@ -275,6 +278,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
             preAssignedKeys={preAssignedKeys}
             pendingRequestKeys={pendingRequestKeys}
             editable={editable}
+            draftMode={draftMode}
             staffingRules={staffingRules}
             violationCells={violations.cells}
             onCellClick={handleCellClick}
@@ -310,6 +314,7 @@ type WorkplaceTableProps = {
   preAssignedKeys?: Set<string>
   pendingRequestKeys?: Set<string>
   editable?: boolean
+  draftMode?: boolean
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
   violationCells: Set<string>
   onCellClick: (empId: string, date: string, primaryWorkplace: string) => void
@@ -321,7 +326,7 @@ function isHoliday(date: Date, holidaySet: Set<string>): boolean {
   return holidaySet.has(formatDateStr(date))
 }
 
-function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
+function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, draftMode, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
   const empStats = useMemo(() => {
     const stats = new Map<string, { workDays: number; offDays: number; paidLeaveDays: number }>()
     for (const emp of employees) {
@@ -500,6 +505,9 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
+                    } else if (draftMode && !a) {
+                      // 下書きモードで PreAssignment 無しのセルは空欄 (スラッシュ無し)
+                      cellContent = ''
                     } else {
                       cellContent = ''
                       isSlash = true

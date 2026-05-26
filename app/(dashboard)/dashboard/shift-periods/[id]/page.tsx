@@ -584,6 +584,7 @@ export default function ShiftPeriodDetailPage() {
             <h2 className="font-semibold mb-1">事前確定（任意）</h2>
             <p className="text-xs text-gray-400 mb-3">セルをクリックして「自動生成で動かさない」セルを指定できます。各従業員の通年ルールはここに自動展開されます。</p>
             <ShiftGrid
+              draftMode
               startDate={period.startDate}
               endDate={period.endDate}
               assignments={preAssignments.map((p) => ({
