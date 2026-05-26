@@ -216,14 +216,15 @@ function repairConsecutive(
   return null
 }
 
-/** 公休不足修復: 出勤日を1日休みに */
+/** 公休不足修復: 出勤日を1日休みに (補填あり/なし両対応) */
 function repairHolidayCount(
   ctx: Ctx,
   assignments: DayAssignment[],
   v: HardViolation,
 ): { assignments: DayAssignment[]; message: string } | null {
   const anchorMap = buildAnchorMap(ctx.anchors)
-  // 該当従業員の出勤日のうち、ロックなしで余裕ある日を探す
+
+  // パス1: 補填不要 (現在数 > 必要数) の日を探す → 単純に1日休みに
   for (const a of assignments.filter((a) => a.employeeId === v.employeeId && a.workplace)) {
     if (isWorkLocked(anchorMap, v.employeeId, a.date)) continue
     const di = ctx.dateInfos.find((d) => d.date === a.date)
@@ -239,8 +240,43 @@ function repairHolidayCount(
       )
       return {
         assignments: next,
-        message: `[公休修復] ${v.message}: ${a.date}を休みに`,
+        message: `[公休修復] ${v.message}: ${a.date}を休みに (補填不要)`,
       }
+    }
+  }
+
+  // パス2: 補填あり (誰か別の人と交換)
+  for (const a of assignments.filter((a) => a.employeeId === v.employeeId && a.workplace)) {
+    if (isWorkLocked(anchorMap, v.employeeId, a.date)) continue
+    if (!a.workplace) continue
+    const replacement = findReplacement(ctx, assignments, a.date, a.workplace, v.employeeId)
+    if (replacement) {
+      const next = assignments.filter(
+        (x) => !(x.employeeId === v.employeeId && x.date === a.date),
+      )
+      next.push({
+        employeeId: replacement.id,
+        date: a.date,
+        workplace: a.workplace,
+        slotId: null,
+        isMoved: true,
+      })
+      return {
+        assignments: next,
+        message: `[公休修復] ${v.message}: ${a.date}を休み、${replacement.lastName}で補填`,
+      }
+    }
+  }
+
+  // パス3: それでも無理 → SOFT違反を許容して強制的に休みに
+  for (const a of assignments.filter((a) => a.employeeId === v.employeeId && a.workplace)) {
+    if (isWorkLocked(anchorMap, v.employeeId, a.date)) continue
+    const next = assignments.filter(
+      (x) => !(x.employeeId === v.employeeId && x.date === a.date),
+    )
+    return {
+      assignments: next,
+      message: `[公休修復] ${v.message}: ${a.date}を強制休み (SOFT違反増加の可能性)`,
     }
   }
   return null
