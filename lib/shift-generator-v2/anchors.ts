@@ -19,11 +19,12 @@ export function collectAnchors(input: GeneratorV2Input): Anchor[] {
   // PreAssignment を Anchor に変換
   for (const pa of input.preAssignments ?? []) {
     if (pa.workplace === null) {
-      // 休み確定
+      // workplace=null + memo='有' は有給扱い (公休数にカウントしない)
+      // それ以外の workplace=null は通常の休み確定
       anchors.push({
         employeeId: pa.employeeId,
         date: pa.date,
-        kind: 'REST_LOCK',
+        kind: pa.memo === '有' ? 'PAID_LEAVE' : 'REST_LOCK',
         memo: pa.memo ?? null,
       })
     } else {
