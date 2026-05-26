@@ -113,11 +113,16 @@ export function assignPatternsPure(
   const assignments: PatternAssignment[] = []
   const fallbackEmps: EmployeeInput[] = []
 
-  // アンカー数でソート: 多い人から
+  // ソート優先順位 (制約多い変数から先に決める CSP 原則):
+  // 1. アンカー数 多い人から (申請・ルール・確定セルで縛られてる人)
+  // 2. アンカー数同じなら secondary 少ない人から (= 動かしにくい人)
+  //    工場のみの人 (secondary=0) を先に配置 → ヘルプ候補にできる
+  //    secondary 多い人 (柔軟) は後回し
   const sortedEmps = [...employees].sort((a, b) => {
     const aAnchors = anchors.filter((x) => x.employeeId === a.id).length
     const bAnchors = anchors.filter((x) => x.employeeId === b.id).length
-    return bAnchors - aAnchors
+    if (aAnchors !== bAnchors) return bAnchors - aAnchors
+    return a.secondaryWorkplaces.length - b.secondaryWorkplaces.length
   })
 
   // 日ごとの「現在の W 人数」(その workplace の primary)
