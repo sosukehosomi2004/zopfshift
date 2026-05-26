@@ -131,6 +131,9 @@ export function assignPatternsPure(
     dailyWorkCount.set(di.date, 0)
   }
 
+  // パターンの使用回数 (B: 同パターン集中防止)
+  const patternUsage = new Map<string, number>()
+
   // workplace は全員同じと仮定 (各 workplace で別途呼ばれる想定)
   const workplace: Workplace = employees[0]?.primaryWorkplace ?? 'FACTORY'
 
@@ -141,11 +144,11 @@ export function assignPatternsPure(
       continue
     }
 
-    // 各パターンを評価: 「必要人数からの距離」を最小化
+    // 各パターンを評価: A 比例スコア + B 使用回数ペナルティ
     let bestPattern: WorkPattern | null = null
     let bestScore = -Infinity
     for (const p of compatible) {
-      const score = evaluatePattern(p, dateInfos, dailyWorkCount, staffingRules, workplace)
+      const score = evaluatePattern(p, dateInfos, dailyWorkCount, staffingRules, workplace, patternUsage)
       if (score > bestScore) {
         bestScore = score
         bestPattern = p
@@ -157,6 +160,7 @@ export function assignPatternsPure(
     }
     // 採用
     assignments.push({ employeeId: emp.id, patternId: bestPattern.id })
+    patternUsage.set(bestPattern.id, (patternUsage.get(bestPattern.id) ?? 0) + 1)
     // dailyWorkCount を更新
     for (let i = 0; i < dateInfos.length; i++) {
       if (getPatternSchedule(bestPattern, i) === 'W') {
@@ -169,13 +173,23 @@ export function assignPatternsPure(
   return { assignments, fallbackEmps }
 }
 
-/** パターン採用時のスコア: 必要人数に近づくほど高い (足りない日に出勤 = ボーナス、超過日に出勤 = ペナルティ) */
+/**
+ * パターン採用時のスコア
+ *
+ * A: 比例スコア — 不足量に応じた強さで出勤ボーナス、超過量に応じてペナルティ
+ *   不足日: score += (deficit) × 10
+ *   超過日: score -= (excess + 1) × 3
+ *
+ * B: パターン使用回数ペナルティ — 同パターンが連続して選ばれないよう抑制
+ *   score -= patternUsage[id] × 8
+ */
 function evaluatePattern(
   pattern: WorkPattern,
   dateInfos: DateInfo[],
   currentCount: Map<string, number>,
   staffingRules: StaffingRuleInput[],
   workplace: Workplace,
+  patternUsage: Map<string, number>,
 ): number {
   let score = 0
   for (let i = 0; i < dateInfos.length; i++) {
@@ -184,10 +198,17 @@ function evaluatePattern(
     const rule = staffingRules.find((r) => r.workplace === workplace && r.dayType === di.dayType)
     const required = rule?.requiredCount ?? 0
     const current = currentCount.get(di.date) ?? 0
-    const deficit = Math.max(0, required - current)
-    if (deficit > 0) score += 10 // 不足日に出勤 = ボーナス
-    else if (current >= required) score -= 1 // 既に満たしてる日に出勤 = 軽いペナルティ
+    if (current < required) {
+      // A: 不足分に比例してボーナス
+      score += (required - current) * 10
+    } else {
+      // A: 超過分に比例してペナルティ
+      score -= (current - required + 1) * 3
+    }
   }
+  // B: パターン使用回数ペナルティ
+  const usage = patternUsage.get(pattern.id) ?? 0
+  score -= usage * 8
   return score
 }
 
