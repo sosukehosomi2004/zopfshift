@@ -30,6 +30,7 @@ const MAX_2C_ITER = 100
 const MAX_2D_ITER = 200
 const MAX_2E_ITER = 100
 const MAX_2F_ITER = 100
+const MAX_2G_ITER = 100
 
 type Ctx = {
   employees: EmployeeInput[]
@@ -513,7 +514,7 @@ export function phase2e(
       if (canCoverSlots(required, factoryWorkers)) continue
 
       // 各 required slot について、不足を解消できる候補を探す
-      const unmetSlotSkills = findUnmetSlotSkills(required, factoryWorkers)
+      const unmetSlotSkills = findUnmetSlotSkills(required)
       if (unmetSlotSkills.length === 0) continue
 
       // 候補 X: 必要スキル保持 + D 休み + 別日でヘルプ中
@@ -540,7 +541,7 @@ export function phase2e(
           if (isWorkLocked(anchorMap, emp.id, help.date)) continue
 
           // Trial: D を工場勤務 / D' を休み
-          let trial = current
+          const trial = current
             .filter((x) => !(x.employeeId === emp.id && x.date === help.date))
             .filter((x) => !(x.employeeId === emp.id && x.date === di.date))
             .concat({ employeeId: emp.id, date: di.date, workplace: 'FACTORY', slotId: null, isMoved: true })
@@ -748,6 +749,147 @@ export function phase2f(
   return { assignments: current, log }
 }
 
+// ============================================================
+// Phase 2g: 同一従業員 (R, W-FACTORY) スワップ
+// ============================================================
+
+/**
+ * 工場スロット不足日 D₁ で、必要スキルを持つ従業員 X が休んでいる場合、
+ * X の別日 D₂ (X が工場出勤) のうち、X を抜いても D₂ の工場が
+ *   - 必要人数を割らない
+ *   - スロット充足を維持
+ * 日を探し、(D₁: R→W FACTORY) と (D₂: W→R) をスワップする。
+ *
+ * 出勤日数・公休数は不変 (1日 W ↔ 1日 R)。
+ * 工場スロットの穴を「公休数を保ったまま」埋められる。
+ */
+export function phase2g(
+  ctx: Ctx & { slots?: SlotInput[] },
+  assignments: DayAssignment[],
+): { assignments: DayAssignment[]; log: string[] } {
+  const log: string[] = []
+  let current = [...assignments]
+  const anchorMap = buildAnchorMap(ctx.anchors)
+  const paidLeaveKeys = buildPaidLeaveKeys(ctx.anchors)
+  if (!ctx.slots || ctx.slots.length === 0) return { assignments: current, log }
+
+  for (let iter = 0; iter < MAX_2G_ITER; iter++) {
+    let bestSwap: { empId: string; restDate: string; workDate: string } | null = null
+
+    for (const di of ctx.dateInfos) {
+      // D₁ の工場必要スロット
+      const required: SlotInput[] = []
+      const groups = new Map<string, SlotInput[]>()
+      for (const slot of ctx.slots) {
+        if (slot.workplace !== 'FACTORY') continue
+        const rule = slot.rules.find((r) => r.dayType === di.dayType)
+        if (!rule) continue
+        if (rule.isRequired) required.push(slot)
+        else if (rule.groupKey) {
+          if (!groups.has(rule.groupKey)) groups.set(rule.groupKey, [])
+          groups.get(rule.groupKey)!.push(slot)
+        }
+      }
+      for (const [, g] of Array.from(groups.entries())) required.push(g[0])
+      if (required.length === 0) continue
+
+      const factoryWorkers = current
+        .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+        .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+        .filter((e): e is EmployeeInput => !!e)
+      if (canCoverSlots(required, factoryWorkers)) continue
+
+      // 候補 X: 必要スキル保持 + D₁ 休み + factory FT
+      for (const X of ctx.employees) {
+        if (X.primaryWorkplace !== 'FACTORY') continue
+        if (X.employmentType === 'PART_TIME') continue
+        if (isWorkLocked(anchorMap, X.id, di.date)) continue
+        if (paidLeaveKeys.has(`${X.id}|${di.date}`)) continue
+        const xOnD1 = current.find((a) => a.employeeId === X.id && a.date === di.date)
+        if (xOnD1 && xOnD1.workplace) continue // 既に勤務中
+
+        // スキル一致 (any required slot を埋められる)
+        const hasSkill = required.some((s) =>
+          s.requiredSkillIds.some((sk) => X.skillIds.includes(sk)),
+        )
+        if (!hasSkill) continue
+
+        // 候補 D₂: X が FACTORY 出勤している別日
+        for (const diOther of ctx.dateInfos) {
+          if (diOther.date === di.date) continue
+          if (isWorkLocked(anchorMap, X.id, diOther.date)) continue
+          if (isRestLocked(anchorMap, X.id, diOther.date)) continue
+          if (paidLeaveKeys.has(`${X.id}|${diOther.date}`)) continue
+          const xOnD2 = current.find((a) => a.employeeId === X.id && a.date === diOther.date)
+          if (!xOnD2 || xOnD2.workplace !== 'FACTORY') continue
+
+          // D₂ で X を抜いても工場が必要人数 ≥ 要求 か
+          const factoryReqD2 = ctx.staffingRules.find(
+            (r) => r.workplace === 'FACTORY' && r.dayType === diOther.dayType,
+          )?.requiredCount ?? 0
+          const factoryCountD2 = current.filter(
+            (a) => a.date === diOther.date && a.workplace === 'FACTORY',
+          ).length
+          if (factoryCountD2 - 1 < factoryReqD2) continue
+
+          // Trial: D₁ → FACTORY出勤, D₂ → 休み
+          const trial = current
+            .filter((x) => !(x.employeeId === X.id && (x.date === di.date || x.date === diOther.date)))
+            .concat({ employeeId: X.id, date: di.date, workplace: 'FACTORY', slotId: null, isMoved: true })
+
+          // 5連勤
+          if (countMaxConsecutive(X.id, trial, ctx, paidLeaveKeys) > 5) continue
+          // 公休数 (スワップなので不変、念のため)
+          if (restCount(X.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+
+          // D₁ の工場スロットが改善するか
+          const newFactoryOnD1 = trial
+            .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+            .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+            .filter((e): e is EmployeeInput => !!e)
+          if (!canCoverSlots(required, newFactoryOnD1)) continue
+
+          // D₂ の工場スロットが悪化しないか
+          const requiredD2: SlotInput[] = []
+          const groupsD2 = new Map<string, SlotInput[]>()
+          for (const slot of ctx.slots) {
+            if (slot.workplace !== 'FACTORY') continue
+            const rule = slot.rules.find((r) => r.dayType === diOther.dayType)
+            if (!rule) continue
+            if (rule.isRequired) requiredD2.push(slot)
+            else if (rule.groupKey) {
+              if (!groupsD2.has(rule.groupKey)) groupsD2.set(rule.groupKey, [])
+              groupsD2.get(rule.groupKey)!.push(slot)
+            }
+          }
+          for (const [, g] of Array.from(groupsD2.entries())) requiredD2.push(g[0])
+          const newFactoryOnD2 = trial
+            .filter((a) => a.date === diOther.date && a.workplace === 'FACTORY')
+            .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+            .filter((e): e is EmployeeInput => !!e)
+          if (requiredD2.length > 0 && !canCoverSlots(requiredD2, newFactoryOnD2)) continue
+
+          bestSwap = { empId: X.id, restDate: di.date, workDate: diOther.date }
+          break
+        }
+        if (bestSwap) break
+      }
+      if (bestSwap) break
+    }
+
+    if (!bestSwap) break
+
+    // 適用
+    current = current
+      .filter((x) => !(x.employeeId === bestSwap!.empId && (x.date === bestSwap!.restDate || x.date === bestSwap!.workDate)))
+      .concat({ employeeId: bestSwap.empId, date: bestSwap.restDate, workplace: 'FACTORY', slotId: null, isMoved: true })
+    const empName = ctx.employees.find((e) => e.id === bestSwap!.empId)?.lastName ?? bestSwap.empId
+    log.push(`[2g] ${empName}: ${bestSwap.workDate} → 休み / ${bestSwap.restDate} を工場に (ポジション埋め)`)
+  }
+
+  return { assignments: current, log }
+}
+
 /** 必要スロットが現在の workers でカバーできるか (バックトラック) */
 function canCoverSlots(required: SlotInput[], workers: EmployeeInput[]): boolean {
   const sorted = [...required].sort((a, b) => {
@@ -772,10 +914,8 @@ function canCoverSlots(required: SlotInput[], workers: EmployeeInput[]): boolean
 }
 
 /** カバーできないスロットの requiredSkillIds リスト */
-function findUnmetSlotSkills(required: SlotInput[], workers: EmployeeInput[]): string[][] {
-  // 簡易: 全 required のうち、現状でマッチング失敗の組み合わせのスロット
-  // をすべて返す (実際にはMRVバックトラック失敗時のスロットを返すべきだが
-  // 簡略化のため、全 required の requiredSkillIds を候補に)
+function findUnmetSlotSkills(required: SlotInput[]): string[][] {
+  // 簡易: 全 required の requiredSkillIds を候補に
   return required.map((s) => s.requiredSkillIds)
 }
 

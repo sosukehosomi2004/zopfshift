@@ -20,10 +20,8 @@ import type {
   EmployeeInput,
   GeneratorV2Input,
   GeneratorV2Output,
-  PatternAssignment,
   SlotInput,
   StaffingRuleInput,
-  Workplace,
 } from './types'
 import { buildDateInfos } from '../shift-generator/utils'
 import { assignSlots } from '../shift-generator/slot-assigner'
@@ -45,7 +43,7 @@ import {
 } from './patterns'
 import { applyCrossMove } from './cross-move'
 import { repairHard } from './repair-hard'
-import { phase2a, phase2b, phase2c, phase2d, phase2e, phase2f } from './repair-soft'
+import { phase2a, phase2b, phase2c, phase2d, phase2e, phase2f, phase2g } from './repair-soft'
 import { buildPaidLeaveKeys } from './scoring'
 
 const MAX_CONSECUTIVE = 5
@@ -244,6 +242,16 @@ export function postProcessV2({
   )
   current = p2f.assignments
   logs.push({ phase: 'phase2f-factory-swap', entries: p2f.log })
+
+  // Phase 2g: 同一従業員 (休み, 工場出勤) スワップ
+  //   スキル保持者の D₁(休み) と D₂(工場出勤) を入れ替えてスロット穴を埋める。
+  //   D₂ で抜けても工場の人員 ≥ 必要人数 + スロット充足 を維持する日のみ対象。
+  const p2g = phase2g(
+    { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive, slots },
+    current,
+  )
+  current = p2g.assignments
+  logs.push({ phase: 'phase2g-self-swap', entries: p2g.log })
 
   // Phase 1: HARD修復 (全体)
   const repaired = repairHard(
