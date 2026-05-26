@@ -45,7 +45,7 @@ import {
 } from './patterns'
 import { applyCrossMove } from './cross-move'
 import { repairHard } from './repair-hard'
-import { phase2a, phase2b, phase2c, phase2d, phase2e } from './repair-soft'
+import { phase2a, phase2b, phase2c, phase2d, phase2e, phase2f } from './repair-soft'
 import { buildPaidLeaveKeys } from './scoring'
 
 const MAX_CONSECUTIVE = 5
@@ -236,6 +236,14 @@ export function postProcessV2({
   )
   current = p2e.assignments
   logs.push({ phase: 'phase2e-factory-slot', entries: p2e.log })
+
+  // Phase 2f: 工場内 2点スワップ (スキル保持者の休み日 ↔ 出勤日)
+  const p2f = phase2f(
+    { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive, slots },
+    current,
+  )
+  current = p2f.assignments
+  logs.push({ phase: 'phase2f-factory-swap', entries: p2f.log })
 
   // Phase 1: HARD修復 (全体)
   const repaired = repairHard(

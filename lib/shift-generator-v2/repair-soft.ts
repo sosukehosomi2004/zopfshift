@@ -29,6 +29,7 @@ const MAX_2B_ITER = 200
 const MAX_2C_ITER = 100
 const MAX_2D_ITER = 200
 const MAX_2E_ITER = 100
+const MAX_2F_ITER = 100
 
 type Ctx = {
   employees: EmployeeInput[]
@@ -585,6 +586,163 @@ export function phase2e(
       .concat({ employeeId: bestSwap.empId, date: bestSwap.restDate, workplace: 'FACTORY', slotId: null, isMoved: true })
     const empName = ctx.employees.find((e) => e.id === bestSwap!.empId)?.lastName ?? bestSwap.empId
     log.push(`[2e] ${empName}: ${bestSwap.helpDate} ヘルプ取消し → 休み / ${bestSwap.restDate} を工場に (ポジション埋め)`)
+  }
+
+  return { assignments: current, log }
+}
+
+// ============================================================
+// Phase 2f: 工場内 休み日2点交換 (スキル保持者を不足日に持ってくる)
+// ============================================================
+
+/**
+ * 工場スロット不足日 D で、必要スキルを持つ従業員 A (D に休み) と
+ * D に出勤中の B を見つけ、A と B の (D, D') の出勤/休みを入れ替える。
+ *
+ *   元: A は D に休み、D' に出勤  /  B は D に出勤、D' に休み
+ *   後: A は D に出勤、D' に休み  /  B は D に休み、D' に出勤
+ *
+ * 両者の出勤日数・公休数は不変、5連勤・スロット充足を維持。
+ */
+export function phase2f(
+  ctx: Ctx & { slots?: SlotInput[] },
+  assignments: DayAssignment[],
+): { assignments: DayAssignment[]; log: string[] } {
+  const log: string[] = []
+  let current = [...assignments]
+  const anchorMap = buildAnchorMap(ctx.anchors)
+  const paidLeaveKeys = buildPaidLeaveKeys(ctx.anchors)
+  if (!ctx.slots || ctx.slots.length === 0) return { assignments: current, log }
+
+  for (let iter = 0; iter < MAX_2F_ITER; iter++) {
+    let bestSwap: { aId: string; bId: string; date: string; otherDate: string } | null = null
+
+    for (const di of ctx.dateInfos) {
+      // この日の工場スロット
+      const required: SlotInput[] = []
+      const groups = new Map<string, SlotInput[]>()
+      for (const slot of ctx.slots) {
+        if (slot.workplace !== 'FACTORY') continue
+        const rule = slot.rules.find((r) => r.dayType === di.dayType)
+        if (!rule) continue
+        if (rule.isRequired) required.push(slot)
+        else if (rule.groupKey) {
+          if (!groups.has(rule.groupKey)) groups.set(rule.groupKey, [])
+          groups.get(rule.groupKey)!.push(slot)
+        }
+      }
+      for (const [, g] of Array.from(groups.entries())) required.push(g[0])
+      if (required.length === 0) continue
+
+      const factoryWorkers = current
+        .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+        .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+        .filter((e): e is EmployeeInput => !!e)
+      if (canCoverSlots(required, factoryWorkers)) continue
+
+      // 候補 A: 必要スキル保持 + D休み + factory FT
+      for (const A of ctx.employees) {
+        if (A.primaryWorkplace !== 'FACTORY') continue
+        if (A.employmentType === 'PART_TIME') continue
+        if (isWorkLocked(anchorMap, A.id, di.date)) continue
+        if (paidLeaveKeys.has(`${A.id}|${di.date}`)) continue
+        const aOnDate = current.find((a) => a.employeeId === A.id && a.date === di.date)
+        if (aOnDate && aOnDate.workplace) continue // 既に勤務
+
+        // スキル一致 (any required slot を埋められる)
+        const hasSkill = required.some((s) =>
+          s.requiredSkillIds.some((sk) => A.skillIds.includes(sk)),
+        )
+        if (!hasSkill) continue
+
+        // 候補 B: D に factory 勤務している factory FT
+        for (const bAssign of current) {
+          if (bAssign.date !== di.date) continue
+          if (bAssign.workplace !== 'FACTORY') continue
+          if (bAssign.employeeId === A.id) continue
+          if (isWorkLocked(anchorMap, bAssign.employeeId, di.date)) continue
+          const B = ctx.employees.find((e) => e.id === bAssign.employeeId)
+          if (!B) continue
+          if (B.primaryWorkplace !== 'FACTORY' || B.employmentType !== 'FULL_TIME') continue
+
+          // D' を探す: A が出勤 (factory) AND B が休み
+          for (const diOther of ctx.dateInfos) {
+            if (diOther.date === di.date) continue
+            // A on D'?
+            const aOnOther = current.find((a) => a.employeeId === A.id && a.date === diOther.date)
+            if (!aOnOther || !aOnOther.workplace) continue
+            if (aOnOther.workplace !== 'FACTORY') continue // 工場出勤じゃないと swap 不可
+            if (isWorkLocked(anchorMap, A.id, diOther.date)) continue
+            // B on D'?
+            const bOnOther = current.find((a) => a.employeeId === B.id && a.date === diOther.date)
+            if (bOnOther && bOnOther.workplace) continue // B が D' に勤務してたら不可 (休みである必要)
+            if (isWorkLocked(anchorMap, B.id, diOther.date)) continue
+            if (paidLeaveKeys.has(`${B.id}|${diOther.date}`)) continue
+
+            // Trial: 2点スワップ
+            //   A: 休みD + 工場D' → 工場D + 休みD'
+            //   B: 工場D + 休みD' → 休みD + 工場D'
+            const trial = current
+              .filter((x) => !(x.employeeId === A.id && (x.date === di.date || x.date === diOther.date)))
+              .filter((x) => !(x.employeeId === B.id && (x.date === di.date || x.date === diOther.date)))
+              .concat({ employeeId: A.id, date: di.date, workplace: 'FACTORY', slotId: null, isMoved: true })
+              .concat({ employeeId: B.id, date: diOther.date, workplace: 'FACTORY', slotId: null, isMoved: true })
+
+            // 5連勤 (A, B 両方)
+            if (countMaxConsecutive(A.id, trial, ctx, paidLeaveKeys) > 5) continue
+            if (countMaxConsecutive(B.id, trial, ctx, paidLeaveKeys) > 5) continue
+            // 公休数 (スワップなので不変、念のため)
+            if (restCount(A.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+            if (restCount(B.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+
+            // スワップ後、D の工場スロット改善
+            const newFactoryOnD = trial
+              .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+              .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+              .filter((e): e is EmployeeInput => !!e)
+            if (!canCoverSlots(required, newFactoryOnD)) continue
+
+            // D' の工場スロット悪化しない
+            const requiredOther: SlotInput[] = []
+            const groupsOther = new Map<string, SlotInput[]>()
+            for (const slot of ctx.slots) {
+              if (slot.workplace !== 'FACTORY') continue
+              const rule = slot.rules.find((r) => r.dayType === diOther.dayType)
+              if (!rule) continue
+              if (rule.isRequired) requiredOther.push(slot)
+              else if (rule.groupKey) {
+                if (!groupsOther.has(rule.groupKey)) groupsOther.set(rule.groupKey, [])
+                groupsOther.get(rule.groupKey)!.push(slot)
+              }
+            }
+            for (const [, g] of Array.from(groupsOther.entries())) requiredOther.push(g[0])
+            const newFactoryOnOther = trial
+              .filter((a) => a.date === diOther.date && a.workplace === 'FACTORY')
+              .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+              .filter((e): e is EmployeeInput => !!e)
+            if (requiredOther.length > 0 && !canCoverSlots(requiredOther, newFactoryOnOther)) continue
+
+            bestSwap = { aId: A.id, bId: B.id, date: di.date, otherDate: diOther.date }
+            break
+          }
+          if (bestSwap) break
+        }
+        if (bestSwap) break
+      }
+      if (bestSwap) break
+    }
+
+    if (!bestSwap) break
+
+    // 適用
+    current = current
+      .filter((x) => !(x.employeeId === bestSwap!.aId && (x.date === bestSwap!.date || x.date === bestSwap!.otherDate)))
+      .filter((x) => !(x.employeeId === bestSwap!.bId && (x.date === bestSwap!.date || x.date === bestSwap!.otherDate)))
+      .concat({ employeeId: bestSwap.aId, date: bestSwap.date, workplace: 'FACTORY', slotId: null, isMoved: true })
+      .concat({ employeeId: bestSwap.bId, date: bestSwap.otherDate, workplace: 'FACTORY', slotId: null, isMoved: true })
+    const aName = ctx.employees.find((e) => e.id === bestSwap!.aId)?.lastName ?? bestSwap.aId
+    const bName = ctx.employees.find((e) => e.id === bestSwap!.bId)?.lastName ?? bestSwap.bId
+    log.push(`[2f] ${aName}⇔${bName}: ${bestSwap.date} と ${bestSwap.otherDate} の休み交換 (ポジション埋め)`)
   }
 
   return { assignments: current, log }
