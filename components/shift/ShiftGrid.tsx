@@ -334,7 +334,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
           </span>
         ))}
         <span className="flex items-center gap-1.5 ml-2">
-          <span className="inline-block w-4 h-4 rounded bg-blue-100 border border-gray-300 text-center text-gray-400 leading-none">/</span>
+          <span className="inline-block w-4 h-4 rounded bg-blue-50 border border-blue-200 text-center text-gray-400 leading-none">/</span>
           <span className="text-gray-700">休み</span>
         </span>
         <span className="flex items-center gap-1.5">
@@ -608,7 +608,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     } else if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
-                      cellBg = 'bg-blue-100' // 通常休みと同色
+                      cellBg = 'bg-blue-50' // 通常休みと同色
                     } else if (draftMode && !a) {
                       // 下書きモードで PreAssignment 無しのセルは空欄 (背景なし)
                       cellContent = ''
@@ -616,7 +616,7 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                       // 通常休み: 薄い青背景 + スラッシュ
                       cellContent = ''
                       isSlash = true
-                      cellBg = 'bg-blue-100'
+                      cellBg = 'bg-blue-50'
                     }
                   } else if (a) {
                     // 本人の主な勤務地と同じなら無色（自勤務）、違えば移動先の色を表示
@@ -744,13 +744,13 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     } else if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
-                      cellBg = 'bg-blue-100'
+                      cellBg = 'bg-blue-50'
                     } else if (draftMode && !a) {
                       cellContent = ''
                     } else {
                       cellContent = ''
                       isSlash = true
-                      cellBg = 'bg-blue-100'
+                      cellBg = 'bg-blue-50'
                     }
                   } else if (a) {
                     if (a.workplace === a.employee.primaryWorkplace) {
