@@ -82,6 +82,9 @@ export default function ShiftPeriodDetailPage() {
   const [shortageDetail, setShortageDetail] = useState<ShortageDetail | null>(null)
   const [slots, setSlots] = useState<SlotDef[]>([])
   const [staffingRules, setStaffingRules] = useState<StaffingRule[]>([])
+  // 通知パネルの開閉状態
+  const [pendingPanelOpen, setPendingPanelOpen] = useState(true)
+  const [softPanelOpen, setSoftPanelOpen] = useState(true)
   const [pendingRequests, setPendingRequests] = useState<{
     id: string; date: string; type: string; memo: string | null;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -640,10 +643,29 @@ export default function ShiftPeriodDetailPage() {
       {(period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (() => {
         const pendings = pendingRequests.filter((r) => r.status === 'PENDING')
         if (pendings.length === 0) return null
+        if (!pendingPanelOpen) {
+          return (
+            <div className="sticky top-4 z-40 mb-4">
+              <button
+                onClick={() => setPendingPanelOpen(true)}
+                className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 shadow-sm text-xs text-amber-700 hover:bg-amber-100"
+              >
+                ⚠ 未処理申請 {pendings.length}件 (クリックで開く)
+              </button>
+            </div>
+          )
+        }
         return (
           <div className="sticky top-4 z-40 mb-4 bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-md max-h-48 overflow-y-auto">
-            <div className="flex items-start gap-2">
+            <div className="flex items-start justify-between gap-2">
               <span className="text-amber-700 font-semibold text-sm">⚠ 生成後に届いた未処理申請が {pendings.length}件 あります</span>
+              <button
+                onClick={() => setPendingPanelOpen(false)}
+                className="text-amber-600 hover:text-amber-800 text-lg leading-none px-1"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
             </div>
             <p className="text-xs text-amber-700 mt-1 mb-3">
               承認するとシフト割当が「休み」に自動変更され、人数不足が発生します。下のシフト表で代替の人を手動配置してください。
@@ -761,11 +783,32 @@ export default function ShiftPeriodDetailPage() {
             const stickyTop = hasPending ? 'top-[14rem]' : 'top-4'
 
             if (violations.length === 0) {
+              if (!softPanelOpen) {
+                return (
+                  <div className={`sticky ${stickyTop} z-30 mb-4`}>
+                    <button
+                      onClick={() => setSoftPanelOpen(true)}
+                      className="bg-green-50 border border-green-200 rounded-xl px-3 py-1.5 shadow-sm text-xs text-green-700 hover:bg-green-100"
+                    >
+                      ✓ SOFT違反なし (クリックで開く)
+                    </button>
+                  </div>
+                )
+              }
               return (
                 <div className={`sticky ${stickyTop} z-30 mb-4 bg-green-50 border border-green-200 rounded-xl p-4 shadow-md`}>
-                  <span className="text-sm font-semibold text-green-700">
-                    ✓ SOFT違反なし
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-green-700">
+                      ✓ SOFT違反なし
+                    </span>
+                    <button
+                      onClick={() => setSoftPanelOpen(false)}
+                      className="text-green-600 hover:text-green-800 text-lg leading-none px-1"
+                      aria-label="閉じる"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               )
             }
@@ -775,6 +818,19 @@ export default function ShiftPeriodDetailPage() {
               staffing: violations.filter((v) => v.kind === 'staffing').length,
               position: violations.filter((v) => v.kind === 'position').length,
               fullTime: violations.filter((v) => v.kind === 'fullTime').length,
+            }
+
+            if (!softPanelOpen) {
+              return (
+                <div className={`sticky ${stickyTop} z-30 mb-4`}>
+                  <button
+                    onClick={() => setSoftPanelOpen(true)}
+                    className="bg-orange-50 border border-orange-200 rounded-xl px-3 py-1.5 shadow-sm text-xs text-orange-700 hover:bg-orange-100"
+                  >
+                    ⚠ SOFT違反 {violations.length}件 (クリックで開く)
+                  </button>
+                </div>
+              )
             }
 
             return (
@@ -792,7 +848,14 @@ export default function ShiftPeriodDetailPage() {
                   {counts.fullTime > 0 && (
                     <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">正社員 {counts.fullTime}</span>
                   )}
-                  <span className="text-xs text-orange-500 ml-auto">クリックで配置候補表示</span>
+                  <span className="text-xs text-orange-500 ml-auto mr-1">クリックで配置候補表示</span>
+                  <button
+                    onClick={() => setSoftPanelOpen(false)}
+                    className="text-orange-600 hover:text-orange-800 text-lg leading-none px-1"
+                    aria-label="閉じる"
+                  >
+                    ×
+                  </button>
                 </div>
                 <div className="max-h-48 overflow-y-auto flex flex-wrap gap-1 text-xs">
                   {violations.map((v, i) => {
