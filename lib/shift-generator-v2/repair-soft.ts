@@ -25,6 +25,7 @@ import {
 
 const MAX_2A_ITER = 100
 const MAX_2B_ITER = 200
+const MAX_2C_ITER = 100
 
 type Ctx = {
   employees: EmployeeInput[]
@@ -278,6 +279,69 @@ function restCount(
     if (paidLeaveKeys.has(`${empId}|${di.date}`)) paid++
   }
   return ctx.dateInfos.length - work - paid
+}
+
+// ============================================================
+// Phase 2c: 余剰公休の削減 (公休をジャスト holidayCount に揃える)
+// ============================================================
+
+/**
+ * 公休 > holidayCount の従業員に対し、余剰分を出勤に変換する。
+ * 条件: SOFT を増やさない、HARD を増やさない (5連勤・公休下回り等)。
+ * 配置先は本人の primary workplace。overstaffing になっても許容。
+ */
+export function phase2c(
+  ctx: Ctx,
+  assignments: DayAssignment[],
+): { assignments: DayAssignment[]; log: string[] } {
+  let current = [...assignments]
+  const log: string[] = []
+  const paidLeaveKeys = buildPaidLeaveKeys(ctx.anchors)
+  const anchorMap = buildAnchorMap(ctx.anchors)
+  const baselineSoft = softCount(current, ctx.dateInfos, ctx.staffingRules, ctx.employees)
+
+  for (let iter = 0; iter < MAX_2C_ITER; iter++) {
+    const surplusEmps = ctx.employees
+      .map((e) => ({ emp: e, surplus: surplusRest(e, current, ctx.dateInfos, ctx.holidayCount, paidLeaveKeys) }))
+      .filter((x) => x.surplus > 0)
+    if (surplusEmps.length === 0) break
+
+    let bestMove: { empId: string; date: string; wp: Workplace } | null = null
+
+    for (const { emp } of surplusEmps) {
+      for (const di of ctx.dateInfos) {
+        const date = di.date
+        if (isRestLocked(anchorMap, emp.id, date)) continue
+        if (isWorkLocked(anchorMap, emp.id, date)) continue
+        if (paidLeaveKeys.has(`${emp.id}|${date}`)) continue
+        const existing = current.find((a) => a.employeeId === emp.id && a.date === date)
+        if (existing && existing.workplace) continue
+
+        // primary workplace に配置試行
+        const wp = emp.primaryWorkplace
+        // パート×工場 不可
+        if (wp === 'FACTORY' && emp.employmentType === 'PART_TIME') continue
+        const trial = applyTrial(current, emp.id, date, wp)
+        // HARD: 5連勤チェック
+        if (countMaxConsecutive(emp.id, trial, ctx, paidLeaveKeys) > 5) continue
+        // HARD: 公休下回り回避
+        if (restCount(emp.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+        // SOFT 増加禁止
+        const newSoft = softCount(trial, ctx.dateInfos, ctx.staffingRules, ctx.employees)
+        if (newSoft > baselineSoft) continue
+        bestMove = { empId: emp.id, date, wp }
+        break
+      }
+      if (bestMove) break
+    }
+
+    if (!bestMove) break
+    current = applyTrial(current, bestMove.empId, bestMove.date, bestMove.wp)
+    const empName = ctx.employees.find((e) => e.id === bestMove!.empId)?.lastName ?? bestMove.empId
+    log.push(`[2c] ${empName} ${bestMove.date} を ${bestMove.wp} に (余剰公休削減)`)
+  }
+
+  return { assignments: current, log }
 }
 
 export type { Ctx as SoftRepairCtx }

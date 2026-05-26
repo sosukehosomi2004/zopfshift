@@ -44,7 +44,7 @@ import {
 } from './patterns'
 import { applyCrossMove } from './cross-move'
 import { repairHard } from './repair-hard'
-import { phase2a, phase2b } from './repair-soft'
+import { phase2a, phase2b, phase2c } from './repair-soft'
 import { buildPaidLeaveKeys } from './scoring'
 
 const MAX_CONSECUTIVE = 5
@@ -244,6 +244,14 @@ export function postProcessV2({
   )
   current = p2b.assignments
   logs.push({ phase: 'phase2b-continuity', entries: p2b.log })
+
+  // Phase 2c: 余剰公休の削減 (公休ジャスト holidayCount に)
+  const p2c = phase2c(
+    { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive },
+    current,
+  )
+  current = p2c.assignments
+  logs.push({ phase: 'phase2c-trim', entries: p2c.log })
 
   // 最終 HARD 残存チェック (デバッグ用)
   const finalRepairCheck = repairHard(
