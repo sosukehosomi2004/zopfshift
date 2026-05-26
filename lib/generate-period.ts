@@ -555,6 +555,52 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
 
         if (cafeShort === 0 && floorShort === 0) continue
 
+        // ============================================================
+        // 工場優先: カフェ/フロアにヘルプする前に、工場 自身の不足を埋める
+        // ============================================================
+        // 工場員 (primary=FACTORY) で休みの人を、まず工場の不足日に出勤させる。
+        // これでカフェ/フロアにヘルプに行く前に工場が満たされる。
+        {
+          const dayTypeForFactory = dow === 0 || dow === 6 ? 'HOLIDAY' : dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU'
+          const factoryRequiredOnDate = requiredOf('FACTORY', dayTypeForFactory)
+          let factoryCount = merged.assignments.filter((a) => a.date === date && a.workplace === 'FACTORY').length
+          if (factoryCount < factoryRequiredOnDate) {
+            const lockedOffOnDate = new Set(
+              preAssignmentInputs
+                .filter((pa) => pa.workplace === null && pa.date === date)
+                .map((pa) => pa.employeeId),
+            )
+            const restingFactory = allEmployees.filter((emp) => {
+              if (emp.primaryWorkplace !== 'FACTORY') return false
+              if (lockedOffOnDate.has(emp.id)) return false
+              const wd = empWorkDays.get(emp.id) ?? new Set()
+              if (wd.has(date)) return false
+              const restDays = allDates.length - wd.size
+              if (restDays <= 8) return false // 公休余裕なしはスキップ
+              const tempSet = new Set(wd)
+              tempSet.add(date)
+              let consecutive = 0
+              for (const d of allDates) {
+                if (tempSet.has(d)) {
+                  consecutive++
+                  if (consecutive > 5) return false
+                } else consecutive = 0
+              }
+              return true
+            })
+            for (const emp of restingFactory) {
+              if (factoryCount >= factoryRequiredOnDate) break
+              merged.assignments.push({
+                employeeId: emp.id, date, workplace: 'FACTORY', slotId: null, isMoved: false,
+              })
+              const wd = empWorkDays.get(emp.id) ?? new Set()
+              wd.add(date)
+              empWorkDays.set(emp.id, wd)
+              factoryCount++
+            }
+          }
+        }
+
         const cafeHasHigh = (): boolean => {
           for (const a of merged.assignments.filter((aa) => aa.date === date && aa.workplace === 'CAFE')) {
             const e = allEmpMap.get(a.employeeId)
