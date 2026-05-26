@@ -869,6 +869,10 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         for (const phaseLog of post.logs) {
           if (phaseLog.entries.length > 0) {
             console.log(`[v2:postProcess:${phaseLog.phase}]`, phaseLog.entries.slice(0, 10))
+            // エラー時の手がかりとして allErrors にも追加
+            for (const entry of phaseLog.entries.slice(0, 10)) {
+              allErrors.push(`[v2:${phaseLog.phase}] ${entry}`)
+            }
           }
         }
       }
