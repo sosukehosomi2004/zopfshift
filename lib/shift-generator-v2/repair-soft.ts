@@ -170,8 +170,8 @@ export function phase2b(
           if (countMaxConsecutive(eA.id, trial, ctx, paidLeaveKeys) > 5) continue
           if (countMaxConsecutive(eB.id, trial, ctx, paidLeaveKeys) > 5) continue
           // 公休数 (A: 公休が減る、B: 公休が増える)
-          // 公休不足にならないか
-          if (restCount(eA.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount - 1) continue // A が公休不足 (許容: 余剰がある場合のみ)
+          // A が公休不足 (< holidayCount) になる移動は却下
+          if (restCount(eA.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
           // SOFT
           const newSoft = softCount(trial, ctx.dateInfos, ctx.staffingRules, ctx.employees)
           if (newSoft > baselineSoft) continue
