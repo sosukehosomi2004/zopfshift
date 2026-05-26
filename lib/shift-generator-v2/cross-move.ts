@@ -48,12 +48,24 @@ function getRequired(
 function shortageAt(
   assignments: DayAssignment[],
   staffingRules: StaffingRuleInput[],
+  employees: EmployeeInput[],
   date: string,
   dayType: DateInfo['dayType'],
   wp: Workplace,
 ): number {
-  const have = countAtWorkplace(assignments, date, wp)
   const need = getRequired(staffingRules, wp, dayType)
+  // フロアは PT で後から埋まる前提なので、ヘルプは minFullTimeCount のみ満たす
+  if (wp === 'FLOOR') {
+    const minFT = staffingRules.find((r) => r.workplace === wp && r.dayType === dayType)?.minFullTimeCount ?? 0
+    const empMap = new Map(employees.map((e) => [e.id, e]))
+    const ftCount = assignments.filter((a) => {
+      if (a.date !== date) return false
+      if (a.workplace !== wp) return false
+      return empMap.get(a.employeeId)?.employmentType === 'FULL_TIME'
+    }).length
+    return Math.max(0, minFT - ftCount)
+  }
+  const have = countAtWorkplace(assignments, date, wp)
   return Math.max(0, need - have)
 }
 
@@ -154,12 +166,12 @@ export function applyCrossMove(
     const days = ctx.dateInfos.map((di) => ({
       date: di.date,
       dayType: di.dayType,
-      shortage: shortageAt(current, ctx.staffingRules, di.date, di.dayType, target),
+      shortage: shortageAt(current, ctx.staffingRules, ctx.employees, di.date, di.dayType, target),
     })).filter((d) => d.shortage > 0)
     days.sort((a, b) => b.shortage - a.shortage)
 
     for (const day of days) {
-      let stillNeed = shortageAt(current, ctx.staffingRules, day.date, day.dayType, target)
+      let stillNeed = shortageAt(current, ctx.staffingRules, ctx.employees, day.date, day.dayType, target)
       while (stillNeed > 0) {
         const movers = findMovers(ctx, current, day.date, day.dayType, target)
         if (movers.length === 0) break
@@ -199,7 +211,7 @@ export function applyCrossMove(
           break
         }
         if (!moved) break
-        stillNeed = shortageAt(current, ctx.staffingRules, day.date, day.dayType, target)
+        stillNeed = shortageAt(current, ctx.staffingRules, ctx.employees, day.date, day.dayType, target)
       }
     }
   }
