@@ -616,10 +616,9 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         let cafeShort = Math.max(0, cafeMin - cafeToday.length)
         let floorShort = Math.max(0, floorMin - floorToday.length)
 
-        if (cafeShort === 0 && floorShort === 0) continue
-
         // ============================================================
         // 工場優先: カフェ/フロアにヘルプする前に、工場 自身の不足を埋める
+        // (cafe/floor が短く無くても、工場のスロットが穴の日に対応)
         // ============================================================
         // 工場員 (primary=FACTORY) で休みの人を、まず工場に追加して
         //   1) 人数不足 を解消
@@ -702,6 +701,9 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
             if (!added) break
           }
         }
+
+        // 工場優先フィル完了後、カフェ/フロアが不足してなければスキップ
+        if (cafeShort === 0 && floorShort === 0) continue
 
         const cafeHasHigh = (): boolean => {
           for (const a of merged.assignments.filter((aa) => aa.date === date && aa.workplace === 'CAFE')) {
