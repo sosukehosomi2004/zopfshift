@@ -375,14 +375,19 @@ export function phase2d(
     // 一番不足が大きい日 (workplace, date) を狙う
     let bestSwap: { empId: string; restDate: string; workDate: string; wp: Workplace } | null = null
 
+    // 候補ソート: secondary 少ない人を優先 (異動できない人 = 不足埋めに最適)
+    const sortedEmps = [...ctx.employees].sort((a, b) =>
+      a.secondaryWorkplaces.length - b.secondaryWorkplaces.length,
+    )
+
     for (const sv of shortages) {
       const shortageDate = sv.date
       const wp = sv.workplace
       const di = ctx.dateInfos.find((d) => d.date === shortageDate)
       if (!di) continue
 
-      // 候補 E: その日 wp で休んでて、wp に行ける人
-      for (const emp of ctx.employees) {
+      // 候補 E: その日 wp で休んでて、wp に行ける人 (secondary 少ない人優先)
+      for (const emp of sortedEmps) {
         // wp に行ける?
         const universal = wp === 'L' || wp === 'F' || wp === 'OTHER' || wp === 'OFFICE'
         if (!universal) {
