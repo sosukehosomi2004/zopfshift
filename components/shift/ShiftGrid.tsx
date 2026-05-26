@@ -990,7 +990,7 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
                 : 'bg-blue-200 border-transparent text-gray-900 hover:bg-blue-300'
             }`}
           >
-            有 有給
+            有
           </button>
         </div>
 
