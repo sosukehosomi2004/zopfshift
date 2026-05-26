@@ -445,6 +445,69 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       return allStaffingRules.find((r) => r.workplace === workplace && r.dayType === dayType)?.requiredCount ?? 0
     }
 
+    // 工場スロット (ポジション) を事前取得 — 工場優先フィルで使う
+    const factorySlotsRawForFill = await prisma.workplaceSlot.findMany({
+      where: { workplace: 'FACTORY' },
+      include: { skills: true, rules: true },
+    })
+    const factorySlotsForFill: SlotInput[] = factorySlotsRawForFill.map((s) => ({
+      id: s.id,
+      workplace: s.workplace as Workplace,
+      name: s.name,
+      sortOrder: s.sortOrder,
+      requiredSkillIds: s.skills.map((sk) => sk.skillId),
+      rules: s.rules.map((r) => ({
+        dayType: r.dayType as DayType,
+        isRequired: r.isRequired,
+        groupKey: r.groupKey,
+      })),
+    }))
+
+    /** 指定日の工場で必要スロットが全部埋まるか */
+    const checkFactorySlotsCovered = (
+      assignments: DayAssignment[],
+      empMap: Map<string, { id: string; skillIds: string[] }>,
+      date: string,
+      dayType: 'WEEKDAY_MON_THU' | 'FRIDAY' | 'HOLIDAY',
+    ): boolean => {
+      const workers = assignments
+        .filter((a) => a.date === date && a.workplace === 'FACTORY')
+        .map((a) => empMap.get(a.employeeId))
+        .filter((e): e is { id: string; skillIds: string[] } => !!e)
+      const required: SlotInput[] = []
+      const groups = new Map<string, SlotInput[]>()
+      for (const slot of factorySlotsForFill) {
+        const rule = slot.rules.find((r) => r.dayType === dayType)
+        if (!rule) continue
+        if (rule.isRequired) required.push(slot)
+        else if (rule.groupKey) {
+          if (!groups.has(rule.groupKey)) groups.set(rule.groupKey, [])
+          groups.get(rule.groupKey)!.push(slot)
+        }
+      }
+      for (const [, g] of Array.from(groups.entries())) required.push(g[0])
+      if (required.length === 0) return true
+      const sorted = [...required].sort((a, b) => {
+        const ac = workers.filter((w) => a.requiredSkillIds.some((s) => w.skillIds.includes(s))).length
+        const bc = workers.filter((w) => b.requiredSkillIds.some((s) => w.skillIds.includes(s))).length
+        return ac - bc
+      })
+      const used = new Set<string>()
+      function solve(idx: number): boolean {
+        if (idx >= sorted.length) return true
+        const slot = sorted[idx]
+        for (const w of workers) {
+          if (used.has(w.id)) continue
+          if (!slot.requiredSkillIds.some((s) => w.skillIds.includes(s))) continue
+          used.add(w.id)
+          if (solve(idx + 1)) return true
+          used.delete(w.id)
+        }
+        return false
+      }
+      return solve(0)
+    }
+
     const mergedCandidates: CandidateOutput[] = []
     for (let i = 0; i < maxCandidates; i++) {
       const merged: CandidateOutput = {
@@ -558,46 +621,85 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         // ============================================================
         // 工場優先: カフェ/フロアにヘルプする前に、工場 自身の不足を埋める
         // ============================================================
-        // 工場員 (primary=FACTORY) で休みの人を、まず工場の不足日に出勤させる。
-        // これでカフェ/フロアにヘルプに行く前に工場が満たされる。
+        // 工場員 (primary=FACTORY) で休みの人を、まず工場に追加して
+        //   1) 人数不足 を解消
+        //   2) スロット(ポジション)不足 を解消
+        // この順で埋めてから、残った人をカフェ/フロアヘルプに回す。
         {
           const dayTypeForFactory = dow === 0 || dow === 6 ? 'HOLIDAY' : dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU'
           const factoryRequiredOnDate = requiredOf('FACTORY', dayTypeForFactory)
+          const empSkillMap = new Map<string, { id: string; skillIds: string[] }>(
+            allEmployees.map((e) => [e.id, { id: e.id, skillIds: e.skills.map((s) => s.skillId) }]),
+          )
+          const lockedOffOnDate = new Set(
+            preAssignmentInputs
+              .filter((pa) => pa.workplace === null && pa.date === date)
+              .map((pa) => pa.employeeId),
+          )
+          const isAvailableFactoryRest = (emp: typeof allEmployees[0]): boolean => {
+            if (emp.primaryWorkplace !== 'FACTORY') return false
+            if (lockedOffOnDate.has(emp.id)) return false
+            const wd = empWorkDays.get(emp.id) ?? new Set()
+            if (wd.has(date)) return false
+            const restDays = allDates.length - wd.size
+            if (restDays <= 8) return false
+            const tempSet = new Set(wd)
+            tempSet.add(date)
+            let consecutive = 0
+            for (const d of allDates) {
+              if (tempSet.has(d)) {
+                consecutive++
+                if (consecutive > 5) return false
+              } else consecutive = 0
+            }
+            return true
+          }
+          const addToFactory = (emp: typeof allEmployees[0]) => {
+            merged.assignments.push({
+              employeeId: emp.id, date, workplace: 'FACTORY', slotId: null, isMoved: false,
+            })
+            const wd = empWorkDays.get(emp.id) ?? new Set()
+            wd.add(date)
+            empWorkDays.set(emp.id, wd)
+          }
+
+          // パス1: 人数不足を埋める
           let factoryCount = merged.assignments.filter((a) => a.date === date && a.workplace === 'FACTORY').length
           if (factoryCount < factoryRequiredOnDate) {
-            const lockedOffOnDate = new Set(
-              preAssignmentInputs
-                .filter((pa) => pa.workplace === null && pa.date === date)
-                .map((pa) => pa.employeeId),
-            )
-            const restingFactory = allEmployees.filter((emp) => {
-              if (emp.primaryWorkplace !== 'FACTORY') return false
-              if (lockedOffOnDate.has(emp.id)) return false
-              const wd = empWorkDays.get(emp.id) ?? new Set()
-              if (wd.has(date)) return false
-              const restDays = allDates.length - wd.size
-              if (restDays <= 8) return false // 公休余裕なしはスキップ
-              const tempSet = new Set(wd)
-              tempSet.add(date)
-              let consecutive = 0
-              for (const d of allDates) {
-                if (tempSet.has(d)) {
-                  consecutive++
-                  if (consecutive > 5) return false
-                } else consecutive = 0
-              }
-              return true
-            })
-            for (const emp of restingFactory) {
+            for (const emp of allEmployees) {
               if (factoryCount >= factoryRequiredOnDate) break
-              merged.assignments.push({
-                employeeId: emp.id, date, workplace: 'FACTORY', slotId: null, isMoved: false,
-              })
-              const wd = empWorkDays.get(emp.id) ?? new Set()
-              wd.add(date)
-              empWorkDays.set(emp.id, wd)
+              if (!isAvailableFactoryRest(emp)) continue
+              addToFactory(emp)
               factoryCount++
             }
+          }
+
+          // パス2: スロット(ポジション)が埋まるかチェック。埋まらなければ追加投入
+          let iter = 0
+          while (iter < 16) {
+            iter++
+            const covered = checkFactorySlotsCovered(merged.assignments, empSkillMap, date, dayTypeForFactory)
+            if (covered) break
+            // 不足スロットに合うスキル持ちの休み工場員を1人追加
+            let added = false
+            for (const emp of allEmployees) {
+              if (!isAvailableFactoryRest(emp)) continue
+              addToFactory(emp)
+              // 改善したか確認
+              if (checkFactorySlotsCovered(merged.assignments, empSkillMap, date, dayTypeForFactory)) {
+                added = true
+                break
+              }
+              // 改善しなかったらロールバック
+              const popIdx = merged.assignments.findIndex(
+                (a) => a.employeeId === emp.id && a.date === date && a.workplace === 'FACTORY',
+              )
+              if (popIdx >= 0) merged.assignments.splice(popIdx, 1)
+              const wd = empWorkDays.get(emp.id) ?? new Set()
+              wd.delete(date)
+              empWorkDays.set(emp.id, wd)
+            }
+            if (!added) break
           }
         }
 
