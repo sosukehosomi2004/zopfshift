@@ -9,6 +9,7 @@ import type {
   DateInfo,
   DayAssignment,
   EmployeeInput,
+  SlotInput,
   StaffingRuleInput,
   Workplace,
 } from './types'
@@ -27,6 +28,7 @@ const MAX_2A_ITER = 100
 const MAX_2B_ITER = 200
 const MAX_2C_ITER = 100
 const MAX_2D_ITER = 200
+const MAX_2E_ITER = 100
 
 type Ctx = {
   employees: EmployeeInput[]
@@ -457,6 +459,159 @@ export function phase2d(
   }
 
   return { assignments: current, log }
+}
+
+// ============================================================
+// Phase 2e: 休み日 ↔ ヘルプ日 スワップで工場ポジションを埋める
+// ============================================================
+
+/**
+ * 工場のスロット(ポジション)が穴の日 D について、
+ *   - 必要スキルを持つ従業員 X (primary=FACTORY) で D に休みの人を探す
+ *   - X が別日 D' で カフェ/フロア 等にヘルプに行ってるなら、
+ *     X の D' ヘルプを取消し (= D' 休み)、D を工場出勤に切替
+ *   X の総出勤日数・公休数は不変、工場ポジションだけ埋まる
+ */
+export function phase2e(
+  ctx: Ctx & { slots?: SlotInput[] },
+  assignments: DayAssignment[],
+): { assignments: DayAssignment[]; log: string[] } {
+  const log: string[] = []
+  let current = [...assignments]
+  const anchorMap = buildAnchorMap(ctx.anchors)
+  const paidLeaveKeys = buildPaidLeaveKeys(ctx.anchors)
+  if (!ctx.slots || ctx.slots.length === 0) return { assignments: current, log }
+
+  for (let iter = 0; iter < MAX_2E_ITER; iter++) {
+    let bestSwap: { empId: string; restDate: string; helpDate: string } | null = null
+
+    for (const di of ctx.dateInfos) {
+      // 工場のスロット (このdayTypeに必要なもの)
+      const required: SlotInput[] = []
+      const groups = new Map<string, SlotInput[]>()
+      for (const slot of ctx.slots) {
+        if (slot.workplace !== 'FACTORY') continue
+        const rule = slot.rules.find((r) => r.dayType === di.dayType)
+        if (!rule) continue
+        if (rule.isRequired) required.push(slot)
+        else if (rule.groupKey) {
+          if (!groups.has(rule.groupKey)) groups.set(rule.groupKey, [])
+          groups.get(rule.groupKey)!.push(slot)
+        }
+      }
+      for (const [, g] of Array.from(groups.entries())) required.push(g[0])
+      if (required.length === 0) continue
+
+      // 現在の工場勤務者
+      const factoryWorkers = current
+        .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+        .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+        .filter((e): e is EmployeeInput => !!e)
+
+      // 充足チェック
+      if (canCoverSlots(required, factoryWorkers)) continue
+
+      // 各 required slot について、不足を解消できる候補を探す
+      const unmetSlotSkills = findUnmetSlotSkills(required, factoryWorkers)
+      if (unmetSlotSkills.length === 0) continue
+
+      // 候補 X: 必要スキル保持 + D 休み + 別日でヘルプ中
+      for (const emp of ctx.employees) {
+        if (emp.primaryWorkplace !== 'FACTORY') continue
+        if (emp.employmentType === 'PART_TIME') continue
+        // スキル一致
+        const hasSkill = unmetSlotSkills.some((skillIds) =>
+          skillIds.some((s) => emp.skillIds.includes(s)),
+        )
+        if (!hasSkill) continue
+        // D に休み?
+        if (isWorkLocked(anchorMap, emp.id, di.date)) continue
+        if (paidLeaveKeys.has(`${emp.id}|${di.date}`)) continue
+        const onDate = current.find((a) => a.employeeId === emp.id && a.date === di.date)
+        if (onDate && onDate.workplace) continue // 既に勤務中
+
+        // X の別日 D' でヘルプ中?
+        for (const help of current) {
+          if (help.employeeId !== emp.id) continue
+          if (help.date === di.date) continue
+          if (!help.workplace) continue
+          if (help.workplace === 'FACTORY') continue // ヘルプ判定: 工場以外
+          if (isWorkLocked(anchorMap, emp.id, help.date)) continue
+
+          // Trial: D を工場勤務 / D' を休み
+          let trial = current
+            .filter((x) => !(x.employeeId === emp.id && x.date === help.date))
+            .filter((x) => !(x.employeeId === emp.id && x.date === di.date))
+            .concat({ employeeId: emp.id, date: di.date, workplace: 'FACTORY', slotId: null, isMoved: true })
+
+          // 5連勤チェック
+          if (countMaxConsecutive(emp.id, trial, ctx, paidLeaveKeys) > 5) continue
+          // 公休数 (シフトなので不変、念のため)
+          if (restCount(emp.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+
+          // D' ヘルプ取消で、その勤務地が minFullTimeCount を下回らないか
+          if (help.workplace === 'FLOOR') {
+            const minFT = ctx.staffingRules.find((r) => r.workplace === 'FLOOR' && r.dayType === ctx.dateInfos.find((di) => di.date === help.date)?.dayType)?.minFullTimeCount ?? 0
+            const ftAfter = trial.filter((a) => {
+              if (a.date !== help.date) return false
+              if (a.workplace !== 'FLOOR') return false
+              const e = ctx.employees.find((e) => e.id === a.employeeId)
+              return e?.employmentType === 'FULL_TIME'
+            }).length
+            if (ftAfter < minFT) continue
+          }
+
+          bestSwap = { empId: emp.id, restDate: di.date, helpDate: help.date }
+          break
+        }
+        if (bestSwap) break
+      }
+      if (bestSwap) break
+    }
+
+    if (!bestSwap) break
+
+    // 適用
+    current = current
+      .filter((x) => !(x.employeeId === bestSwap!.empId && x.date === bestSwap!.helpDate))
+      .filter((x) => !(x.employeeId === bestSwap!.empId && x.date === bestSwap!.restDate))
+      .concat({ employeeId: bestSwap.empId, date: bestSwap.restDate, workplace: 'FACTORY', slotId: null, isMoved: true })
+    const empName = ctx.employees.find((e) => e.id === bestSwap!.empId)?.lastName ?? bestSwap.empId
+    log.push(`[2e] ${empName}: ${bestSwap.helpDate} ヘルプ取消し → 休み / ${bestSwap.restDate} を工場に (ポジション埋め)`)
+  }
+
+  return { assignments: current, log }
+}
+
+/** 必要スロットが現在の workers でカバーできるか (バックトラック) */
+function canCoverSlots(required: SlotInput[], workers: EmployeeInput[]): boolean {
+  const sorted = [...required].sort((a, b) => {
+    const ac = workers.filter((w) => a.requiredSkillIds.some((s) => w.skillIds.includes(s))).length
+    const bc = workers.filter((w) => b.requiredSkillIds.some((s) => w.skillIds.includes(s))).length
+    return ac - bc
+  })
+  const used = new Set<string>()
+  function solve(idx: number): boolean {
+    if (idx >= sorted.length) return true
+    const slot = sorted[idx]
+    for (const w of workers) {
+      if (used.has(w.id)) continue
+      if (!slot.requiredSkillIds.some((s) => w.skillIds.includes(s))) continue
+      used.add(w.id)
+      if (solve(idx + 1)) return true
+      used.delete(w.id)
+    }
+    return false
+  }
+  return solve(0)
+}
+
+/** カバーできないスロットの requiredSkillIds リスト */
+function findUnmetSlotSkills(required: SlotInput[], workers: EmployeeInput[]): string[][] {
+  // 簡易: 全 required のうち、現状でマッチング失敗の組み合わせのスロット
+  // をすべて返す (実際にはMRVバックトラック失敗時のスロットを返すべきだが
+  // 簡略化のため、全 required の requiredSkillIds を候補に)
+  return required.map((s) => s.requiredSkillIds)
 }
 
 export type { Ctx as SoftRepairCtx }
