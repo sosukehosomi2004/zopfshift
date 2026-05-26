@@ -598,10 +598,10 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   const displayMemo = a?.memo === '連' ? null : a?.memo
                   if (isOff) {
                     if (displayMemo === '有') {
-                      // 有給: 濃い青背景 + 「有」文字
+                      // 有給: 濃い青背景 + 「有」文字 (黒)
                       cellContent = '有'
                       cellBg = 'bg-blue-300'
-                      cellText = 'text-white'
+                      cellText = 'text-gray-900 font-semibold'
                     } else if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
@@ -734,12 +734,20 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   // memo='連' は前月末からの5連勤回避マーカー。表示はしないが、警告判定用に保持。
                   const displayMemo = a?.memo === '連' ? null : a?.memo
                   if (isOff) {
-                    if (displayMemo) {
+                    if (displayMemo === '有') {
+                      cellContent = '有'
+                      cellBg = 'bg-blue-300'
+                      cellText = 'text-gray-900 font-semibold'
+                    } else if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
+                      cellBg = 'bg-blue-100'
+                    } else if (draftMode && !a) {
+                      cellContent = ''
                     } else {
                       cellContent = ''
                       isSlash = true
+                      cellBg = 'bg-blue-100'
                     }
                   } else if (a) {
                     if (a.workplace === a.employee.primaryWorkplace) {
@@ -961,13 +969,29 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
           <button
             disabled={saving}
             onClick={() => handleClick(null)}
-            className={`py-2 rounded-lg text-sm font-medium col-span-2 border-2 disabled:opacity-50 ${
-              currentWorkplace === null
-                ? 'bg-gray-300 border-gray-500 text-gray-900'
-                : 'bg-gray-100 border-transparent text-gray-700 hover:bg-gray-200'
+            className={`py-2 rounded-lg text-sm font-medium border-2 disabled:opacity-50 ${
+              !currentWorkplace && currentMemo !== '有'
+                ? 'bg-blue-100 border-blue-400 text-gray-900'
+                : 'bg-blue-50 border-transparent text-gray-700 hover:bg-blue-100'
             }`}
           >
             / 休み
+          </button>
+          <button
+            disabled={saving}
+            onClick={async () => {
+              // 有給: workplace=null + memo='有'
+              setSaving(true)
+              await onSave(null, '有', color)
+              setSaving(false)
+            }}
+            className={`py-2 rounded-lg text-sm font-medium border-2 disabled:opacity-50 ${
+              !currentWorkplace && currentMemo === '有'
+                ? 'bg-blue-400 border-blue-600 text-white'
+                : 'bg-blue-200 border-transparent text-gray-900 hover:bg-blue-300'
+            }`}
+          >
+            有 有給
           </button>
         </div>
 
