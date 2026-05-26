@@ -44,7 +44,7 @@ import {
 } from './patterns'
 import { applyCrossMove } from './cross-move'
 import { repairHard } from './repair-hard'
-import { phase2a, phase2b, phase2c } from './repair-soft'
+import { phase2a, phase2b, phase2c, phase2d } from './repair-soft'
 import { buildPaidLeaveKeys } from './scoring'
 
 const MAX_CONSECUTIVE = 5
@@ -234,7 +234,15 @@ export function postProcessV2({
   current = repaired.assignments
   logs.push({ phase: 'phase1-hard', entries: repaired.log })
 
-  // Phase 2a: SOFT解消
+  // Phase 2d: 休み日リバランス (不足日と余り日を入れ替える)
+  const p2d = phase2d(
+    { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive },
+    current,
+  )
+  current = p2d.assignments
+  logs.push({ phase: 'phase2d-rebalance', entries: p2d.log })
+
+  // Phase 2a: SOFT解消 (休み過剰者 → 出勤化)
   const p2a = phase2a(
     { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive },
     current,

@@ -26,6 +26,7 @@ import {
 const MAX_2A_ITER = 100
 const MAX_2B_ITER = 200
 const MAX_2C_ITER = 100
+const MAX_2D_ITER = 200
 
 type Ctx = {
   employees: EmployeeInput[]
@@ -339,6 +340,115 @@ export function phase2c(
     current = applyTrial(current, bestMove.empId, bestMove.date, bestMove.wp)
     const empName = ctx.employees.find((e) => e.id === bestMove!.empId)?.lastName ?? bestMove.empId
     log.push(`[2c] ${empName} ${bestMove.date} を ${bestMove.wp} に (余剰公休削減)`)
+  }
+
+  return { assignments: current, log }
+}
+
+// ============================================================
+// Phase 2d: 休み日リバランス (不足日と余り日を入れ替える)
+// ============================================================
+
+/**
+ * ある日 D で workplace W が不足してる場合、
+ *   その日 W で休んでいる工場員 E を探し、
+ *   E の別の出勤日 D'(W が余ってる) を休みに変える代わりに、
+ *   D を出勤にする。
+ *
+ * E の公休数は維持、5連勤も維持、SOFT は不足→余り の方向で改善のみ。
+ */
+export function phase2d(
+  ctx: Ctx,
+  assignments: DayAssignment[],
+): { assignments: DayAssignment[]; log: string[] } {
+  let current = [...assignments]
+  const log: string[] = []
+  const paidLeaveKeys = buildPaidLeaveKeys(ctx.anchors)
+  const anchorMap = buildAnchorMap(ctx.anchors)
+
+  for (let iter = 0; iter < MAX_2D_ITER; iter++) {
+    // SOFT 不足を検出
+    const softs = findSoftViolations(current, ctx.dateInfos, ctx.staffingRules, ctx.employees)
+    const shortages = softs.filter((v) => v.kind === 'staffing')
+    if (shortages.length === 0) break
+
+    // 一番不足が大きい日 (workplace, date) を狙う
+    let bestSwap: { empId: string; restDate: string; workDate: string; wp: Workplace } | null = null
+
+    for (const sv of shortages) {
+      const shortageDate = sv.date
+      const wp = sv.workplace
+      const di = ctx.dateInfos.find((d) => d.date === shortageDate)
+      if (!di) continue
+
+      // 候補 E: その日 wp で休んでて、wp に行ける人
+      for (const emp of ctx.employees) {
+        // wp に行ける?
+        const universal = wp === 'L' || wp === 'F' || wp === 'OTHER' || wp === 'OFFICE'
+        if (!universal) {
+          const allowed = new Set<Workplace>([emp.primaryWorkplace, ...emp.secondaryWorkplaces])
+          if (!allowed.has(wp)) continue
+        }
+        if (wp === 'FACTORY' && emp.employmentType === 'PART_TIME') continue
+
+        // E はその日休み?
+        if (isWorkLocked(anchorMap, emp.id, shortageDate)) continue
+        if (paidLeaveKeys.has(`${emp.id}|${shortageDate}`)) continue
+        const restAssign = current.find((a) => a.employeeId === emp.id && a.date === shortageDate)
+        if (restAssign && restAssign.workplace) continue // 出勤中
+
+        // E の別の出勤日 D' を探す: その日 D' の workplace W' が余ってる
+        for (const a of current) {
+          if (a.employeeId !== emp.id) continue
+          if (!a.workplace) continue
+          if (a.date === shortageDate) continue
+          if (isWorkLocked(anchorMap, emp.id, a.date)) continue
+          const workplaceAtY = a.workplace
+          const diY = ctx.dateInfos.find((d) => d.date === a.date)
+          if (!diY) continue
+          const ruleY = ctx.staffingRules.find((r) => r.workplace === workplaceAtY && r.dayType === diY.dayType)
+          const requiredY = ruleY?.requiredCount ?? 0
+          const currentY = current.filter((x) => x.date === a.date && x.workplace === workplaceAtY).length
+          // Y を E が離脱しても W' が不足にならないか
+          if (currentY - 1 < requiredY) continue
+
+          // E に shortageDate=wp、a.date=休みに変える trial
+          const trial = current
+            .filter((x) => !(x.employeeId === emp.id && x.date === a.date)) // Y の出勤を削除
+            .filter((x) => !(x.employeeId === emp.id && x.date === shortageDate)) // X の休み記録を削除 (もし null assignment あれば)
+            .concat({ employeeId: emp.id, date: shortageDate, workplace: wp, slotId: null, isMoved: true })
+
+          // HARD: 5連勤
+          if (countMaxConsecutive(emp.id, trial, ctx, paidLeaveKeys) > 5) continue
+          // HARD: 公休数維持 (シフトなので不変、念のため確認)
+          if (restCount(emp.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
+          // SOFT: 全体で悪化してない?
+          const newSoft = softCount(trial, ctx.dateInfos, ctx.staffingRules, ctx.employees)
+          if (newSoft > softs.length) continue
+
+          bestSwap = { empId: emp.id, restDate: shortageDate, workDate: a.date, wp }
+          break
+        }
+        if (bestSwap) break
+      }
+      if (bestSwap) break
+    }
+
+    if (!bestSwap) break
+
+    // 適用
+    current = current
+      .filter((x) => !(x.employeeId === bestSwap!.empId && x.date === bestSwap!.workDate))
+      .filter((x) => !(x.employeeId === bestSwap!.empId && x.date === bestSwap!.restDate))
+      .concat({
+        employeeId: bestSwap.empId,
+        date: bestSwap.restDate,
+        workplace: bestSwap.wp,
+        slotId: null,
+        isMoved: true,
+      })
+    const empName = ctx.employees.find((e) => e.id === bestSwap!.empId)?.lastName ?? bestSwap.empId
+    log.push(`[2d] ${empName}: ${bestSwap.workDate} を休みに / ${bestSwap.restDate} を ${bestSwap.wp} に (不足解消)`)
   }
 
   return { assignments: current, log }
