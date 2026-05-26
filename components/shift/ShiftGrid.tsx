@@ -102,6 +102,37 @@ function formatDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/**
+ * Shift+クリック範囲選択用: anchor から target までの矩形 (employee × date) 内のセルキーを返す
+ */
+function computeRangeSelection(
+  anchorKey: string,
+  targetKey: string,
+  employees: Employee[],
+  dates: Date[],
+): Set<string> {
+  const [aEmpId, aDate] = anchorKey.split('|')
+  const [tEmpId, tDate] = targetKey.split('|')
+  const empIdxA = employees.findIndex((e) => e.id === aEmpId)
+  const empIdxT = employees.findIndex((e) => e.id === tEmpId)
+  const dateIdxA = dates.findIndex((d) => formatDateStr(d) === aDate)
+  const dateIdxT = dates.findIndex((d) => formatDateStr(d) === tDate)
+  if (empIdxA < 0 || empIdxT < 0 || dateIdxA < 0 || dateIdxT < 0) {
+    return new Set([anchorKey, targetKey])
+  }
+  const empFrom = Math.min(empIdxA, empIdxT)
+  const empTo = Math.max(empIdxA, empIdxT)
+  const dateFrom = Math.min(dateIdxA, dateIdxT)
+  const dateTo = Math.max(dateIdxA, dateIdxT)
+  const set = new Set<string>()
+  for (let i = empFrom; i <= empTo; i++) {
+    for (let j = dateFrom; j <= dateTo; j++) {
+      set.add(`${employees[i].id}|${formatDateStr(dates[j])}`)
+    }
+  }
+  return set
+}
+
 // 日曜の右端 = 週の区切り。太い右ボーダーを返す。
 function weekDividerClass(d: Date): string {
   return d.getDay() === 0 ? 'border-r-2 border-r-gray-400' : ''
@@ -118,7 +149,13 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     if (holidays) for (const h of holidays) set.add(h.date.split('T')[0])
     return set
   }, [holidays])
-  const [editingCell, setEditingCell] = useState<{ employeeId: string; date: string; primaryWorkplace: string } | null>(null)
+  const [editingCells, setEditingCells] = useState<{ employeeId: string; date: string; primaryWorkplace: string }[] | null>(null)
+  // 複数選択用: 選択中のセル (key = `${empId}|${date}`)
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  // 範囲選択のアンカー
+  const [anchorKey, setAnchorKey] = useState<string | null>(null)
+  // セル情報マップ (selection から再構築できるよう)
+  const cellInfoRef = new Map<string, { employeeId: string; date: string; primaryWorkplace: string }>()
 
   const dates = useMemo(() => {
     const result: Date[] = []
@@ -227,23 +264,63 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     return { workplace: wp, employees: primary, maxMovedIn, movedInPerDay }
   }).filter((s) => s.employees.length > 0 || s.maxMovedIn > 0)
 
-  const handleCellClick = (employeeId: string, date: string, primaryWorkplace: string) => {
+  const handleCellClick = (employeeId: string, date: string, primaryWorkplace: string, e?: React.MouseEvent) => {
     if (!editable) return
-    setEditingCell({ employeeId, date, primaryWorkplace })
+    const key = `${employeeId}|${date}`
+    cellInfoRef.set(key, { employeeId, date, primaryWorkplace })
+
+    if (e?.shiftKey && anchorKey) {
+      // 範囲選択: anchor から現在のセルまで (employee と date 両方の矩形)
+      const range = computeRangeSelection(anchorKey, key, allEmployees, dates)
+      setSelectedKeys(range)
+      return
+    }
+    if (e?.ctrlKey || e?.metaKey) {
+      // トグル
+      const next = new Set(selectedKeys)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      setSelectedKeys(next)
+      setAnchorKey(key)
+      return
+    }
+
+    // 通常クリック
+    if (selectedKeys.has(key) && selectedKeys.size > 1) {
+      // 選択中のセル群をまとめて編集
+      const cells = Array.from(selectedKeys).map((k) => {
+        const [empId, d] = k.split('|')
+        const info = cellInfoRef.get(k) ?? { employeeId: empId, date: d, primaryWorkplace }
+        return info
+      })
+      setEditingCells(cells)
+    } else {
+      // 単一選択 + 編集
+      setSelectedKeys(new Set([key]))
+      setAnchorKey(key)
+      setEditingCells([{ employeeId, date, primaryWorkplace }])
+    }
   }
 
   const handleEdit = async (workplace: string | null, memo: string | null, color: string | null, clear?: boolean) => {
-    if (!editingCell || !onEdit) return
-    await onEdit({ employeeId: editingCell.employeeId, date: editingCell.date, workplace, memo, color, clear })
-    setEditingCell(null)
+    if (!editingCells || !onEdit) return
+    // 一括処理: 各セルに対して onEdit を順次呼ぶ
+    for (const c of editingCells) {
+      await onEdit({ employeeId: c.employeeId, date: c.date, workplace, memo, color, clear })
+    }
+    setEditingCells(null)
+    setSelectedKeys(new Set())
   }
 
-  const editingIsPreAssigned = editingCell
-    ? preAssignedKeys?.has(`${editingCell.employeeId}-${editingCell.date}`) ?? false
+  // 編集対象が単一セルなら現在の値を初期表示。複数選択時は空 (一括設定)。
+  const editingFirstCell = editingCells?.[0]
+  const editingIsBatch = (editingCells?.length ?? 0) > 1
+  const editingIsPreAssigned = editingFirstCell && !editingIsBatch
+    ? preAssignedKeys?.has(`${editingFirstCell.employeeId}-${editingFirstCell.date}`) ?? false
     : false
 
-  const editingAssignment = editingCell
-    ? assignmentMap.get(`${editingCell.employeeId}-${editingCell.date}`)
+  const editingAssignment = editingFirstCell && !editingIsBatch
+    ? assignmentMap.get(`${editingFirstCell.employeeId}-${editingFirstCell.date}`)
     : null
 
   return (
@@ -279,6 +356,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
             pendingRequestKeys={pendingRequestKeys}
             editable={editable}
             draftMode={draftMode}
+            selectedKeys={selectedKeys}
             staffingRules={staffingRules}
             violationCells={violations.cells}
             onCellClick={handleCellClick}
@@ -286,16 +364,17 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
         ))}
       </div>
 
-      {editingCell && (
+      {editingCells && editingCells.length > 0 && (
         <CellEditor
-          date={editingCell.date}
+          date={editingFirstCell!.date}
           currentWorkplace={editingAssignment?.workplace ?? null}
           currentMemo={editingAssignment?.memo ?? null}
           currentColor={editingAssignment?.color ?? null}
-          primaryWorkplace={editingCell.primaryWorkplace}
+          primaryWorkplace={editingFirstCell!.primaryWorkplace}
           isPreAssigned={editingIsPreAssigned}
+          batchCount={editingIsBatch ? editingCells.length : undefined}
           onSave={handleEdit}
-          onClose={() => setEditingCell(null)}
+          onClose={() => { setEditingCells(null); setSelectedKeys(new Set()) }}
         />
       )}
       </div>
@@ -315,9 +394,10 @@ type WorkplaceTableProps = {
   pendingRequestKeys?: Set<string>
   editable?: boolean
   draftMode?: boolean
+  selectedKeys?: Set<string>
   staffingRules?: { workplace: string; dayType: string; requiredCount: number }[]
   violationCells: Set<string>
-  onCellClick: (empId: string, date: string, primaryWorkplace: string) => void
+  onCellClick: (empId: string, date: string, primaryWorkplace: string, e?: React.MouseEvent) => void
 }
 
 function isHoliday(date: Date, holidaySet: Set<string>): boolean {
@@ -326,7 +406,7 @@ function isHoliday(date: Date, holidaySet: Set<string>): boolean {
   return holidaySet.has(formatDateStr(date))
 }
 
-function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, draftMode, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
+function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates, monthGroups, assignmentMap, holidaySet, preAssignedKeys, pendingRequestKeys, editable, draftMode, selectedKeys, staffingRules, violationCells, onCellClick }: WorkplaceTableProps) {
   const empStats = useMemo(() => {
     const stats = new Map<string, { workDays: number; offDays: number; paidLeaveDays: number }>()
     for (const emp of employees) {
@@ -517,15 +597,23 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                   // memo='連' は前月末からの5連勤回避マーカー。表示はしないが、警告判定用に保持。
                   const displayMemo = a?.memo === '連' ? null : a?.memo
                   if (isOff) {
-                    if (displayMemo) {
+                    if (displayMemo === '有') {
+                      // 有給: 濃い青背景 + 「有」文字
+                      cellContent = '有'
+                      cellBg = 'bg-blue-300'
+                      cellText = 'text-white'
+                    } else if (displayMemo) {
                       cellContent = displayMemo
                       cellText = 'text-gray-700'
+                      cellBg = 'bg-blue-100' // 通常休みと同色
                     } else if (draftMode && !a) {
-                      // 下書きモードで PreAssignment 無しのセルは空欄 (スラッシュ無し)
+                      // 下書きモードで PreAssignment 無しのセルは空欄 (背景なし)
                       cellContent = ''
                     } else {
+                      // 通常休み: 薄い青背景 + スラッシュ
                       cellContent = ''
                       isSlash = true
+                      cellBg = 'bg-blue-100'
                     }
                   } else if (a) {
                     // 本人の主な勤務地と同じなら無色（自勤務）、違えば移動先の色を表示
@@ -554,13 +642,14 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
 
                   const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
                   const isPending = pendingRequestKeys?.has(`${emp.id}-${dateStr}`) ?? false
+                  const isSelected = selectedKeys?.has(`${emp.id}|${dateStr}`) ?? false
 
                   return (
                     <td key={dateStr}
-                      onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
+                      onClick={(e) => onCellClick(emp.id, dateStr, emp.primaryWorkplace, e)}
                       className={`relative border border-gray-200 ${weekDividerClass(d)} ${rowBand} px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
-                      } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
+                      } ${isSelected ? 'ring-4 ring-sky-500 ring-inset z-10' : ''} ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
                       } ${isPending && !isPreAssigned ? 'outline outline-2 outline-black outline-offset-[-2px]' : ''}`}>
                       {isSlash && (
@@ -677,13 +766,14 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
 
                   const isPreAssigned = preAssignedKeys?.has(`${emp.id}-${dateStr}`) ?? false
                   const isPending = pendingRequestKeys?.has(`${emp.id}-${dateStr}`) ?? false
+                  const isSelected = selectedKeys?.has(`${emp.id}|${dateStr}`) ?? false
 
                   return (
                     <td key={dateStr}
-                      onClick={() => onCellClick(emp.id, dateStr, emp.primaryWorkplace)}
+                      onClick={(e) => onCellClick(emp.id, dateStr, emp.primaryWorkplace, e)}
                       className={`relative border border-gray-200 ${weekDividerClass(d)} ${rowBand} px-0 py-1.5 text-center ${cellBg} ${cellText} ${
                         editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-400 hover:ring-inset' : ''
-                      } ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
+                      } ${isSelected ? 'ring-4 ring-sky-500 ring-inset z-10' : ''} ${isViolation ? 'ring-2 ring-red-500 ring-inset' : ''} ${
                         isPreAssigned ? 'outline-2 outline-dashed outline-gray-700 outline-offset-[-2px]' : ''
                       } ${isPending && !isPreAssigned ? 'outline outline-2 outline-black outline-offset-[-2px]' : ''}`}>
                       {isSlash && (
@@ -801,11 +891,12 @@ type CellEditorProps = {
   currentColor: string | null
   primaryWorkplace: string
   isPreAssigned?: boolean
+  batchCount?: number // 2以上で複数セル一括編集モード
   onSave: (workplace: string | null, memo: string | null, color: string | null, clear?: boolean) => void | Promise<void>
   onClose: () => void
 }
 
-function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primaryWorkplace, isPreAssigned, onSave, onClose }: CellEditorProps) {
+function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primaryWorkplace, isPreAssigned, batchCount, onSave, onClose }: CellEditorProps) {
   const [memo, setMemo] = useState(currentMemo ?? '')
   const [color, setColor] = useState<string | null>(currentColor ?? null)
   const [saving, setSaving] = useState(false)
@@ -833,7 +924,9 @@ function CellEditor({ date, currentWorkplace, currentMemo, currentColor, primary
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl p-5 w-80" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-3">
-          <h3 className="font-semibold text-gray-900">{date} のシフト編集</h3>
+          <h3 className="font-semibold text-gray-900">
+            {batchCount && batchCount > 1 ? `選択中 ${batchCount}セル を一括編集` : `${date} のシフト編集`}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
