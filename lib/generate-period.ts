@@ -913,19 +913,26 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
           }
         }
         // 公休数 / 5連勤 再チェック
-        const workDaysByEmp = new Map<string, Set<string>>()
+        // 公休 = 出勤も有給も無い日。assignments を全部 (workplace=null=有給/休み を含む)
+        // 出勤+有給扱いで集計し、それ以外の日が「公休」
+        const allAssignDatesByEmp = new Map<string, Set<string>>()
+        const workDatesByEmp = new Map<string, Set<string>>()
         for (const a of merged.assignments) {
-          if (!a.workplace) continue
-          if (!workDaysByEmp.has(a.employeeId)) workDaysByEmp.set(a.employeeId, new Set())
-          workDaysByEmp.get(a.employeeId)!.add(a.date)
+          if (!allAssignDatesByEmp.has(a.employeeId)) allAssignDatesByEmp.set(a.employeeId, new Set())
+          allAssignDatesByEmp.get(a.employeeId)!.add(a.date)
+          if (a.workplace) {
+            if (!workDatesByEmp.has(a.employeeId)) workDatesByEmp.set(a.employeeId, new Set())
+            workDatesByEmp.get(a.employeeId)!.add(a.date)
+          }
         }
         for (const emp of allEmployees) {
-          const wd = workDaysByEmp.get(emp.id) ?? new Set()
-          const restDays = reCheckDates.length - wd.size
+          const allAssigned = allAssignDatesByEmp.get(emp.id) ?? new Set()
+          const restDays = reCheckDates.length - allAssigned.size
           if (restDays < holidayCount) {
             merged.hardViolations.push(`[公休] ${emp.lastName}: 公休${restDays}日（最低${holidayCount}日）`)
           }
-          // 5連勤再チェック
+          // 5連勤再チェック (有給は連勤リセットなので work のみで判定)
+          const wd = workDatesByEmp.get(emp.id) ?? new Set()
           let consec = initialConsecutiveWork[emp.id] ?? 0
           for (const d of reCheckDates) {
             if (wd.has(d)) {
