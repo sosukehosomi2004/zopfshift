@@ -549,6 +549,13 @@ export function phase2e(
           // 公休数 (シフトなので不変、念のため)
           if (restCount(emp.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
 
+          // ★ 重要: スワップ後、工場スロット充足が改善するか確認
+          const newFactoryWorkers = trial
+            .filter((a) => a.date === di.date && a.workplace === 'FACTORY')
+            .map((a) => ctx.employees.find((e) => e.id === a.employeeId))
+            .filter((e): e is EmployeeInput => !!e)
+          if (!canCoverSlots(required, newFactoryWorkers)) continue // 改善しないなら却下
+
           // D' ヘルプ取消で、その勤務地が minFullTimeCount を下回らないか
           if (help.workplace === 'FLOOR') {
             const minFT = ctx.staffingRules.find((r) => r.workplace === 'FLOOR' && r.dayType === ctx.dateInfos.find((di) => di.date === help.date)?.dayType)?.minFullTimeCount ?? 0
