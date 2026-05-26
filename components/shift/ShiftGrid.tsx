@@ -415,6 +415,21 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
     return counts
   }, [dates, workplace, dailyCounts, holidaySet, staffingRules])
 
+  // 余り人員 = 出勤数 - 必要稼働 (0 以上のみ。マイナスは非表示)
+  const surplusCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const d of dates) {
+      const dateStr = formatDateStr(d)
+      const dow = d.getDay()
+      const isHol = isHoliday(d, holidaySet)
+      const dayTypeKey = isHol ? 'HOLIDAY' : (dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU')
+      const required = staffingRules?.find((r) => r.workplace === workplace && r.dayType === dayTypeKey)?.requiredCount ?? 0
+      const actual = dailyCounts.get(dateStr) ?? 0
+      counts.set(dateStr, actual - required) // マイナス含む。表示時に非表示判定
+    }
+    return counts
+  }, [dates, workplace, dailyCounts, holidaySet, staffingRules])
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-gray-700 mb-2 inline-flex items-center gap-2">
@@ -747,6 +762,26 @@ function WorkplaceTable({ workplace, employees, maxMovedIn, movedInPerDay, dates
                     (dow === 0 || holidaySet.has(dateStr)) ? 'bg-red-50' : dow === 6 ? 'bg-blue-50' : 'bg-gray-100'
                   } ${count > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                   {count > 0 ? count : '-'}
+                </td>
+              )
+            })}
+            <td className="border border-gray-200 bg-gray-100" />
+            <td className="border border-gray-200 bg-gray-100" />
+          </tr>
+          <tr>
+            <td className="sticky left-0 z-10 bg-gray-100 border border-gray-200 px-2 py-1.5 font-semibold text-gray-600 whitespace-nowrap">
+              余り人員
+            </td>
+            {dates.map((d) => {
+              const dateStr = formatDateStr(d)
+              const diff = surplusCounts.get(dateStr) ?? 0
+              const dow = d.getDay()
+              return (
+                <td key={`surplus-${dateStr}`}
+                  className={`border border-gray-200 px-0 py-1.5 text-center font-semibold ${
+                    (dow === 0 || holidaySet.has(dateStr)) ? 'bg-red-50' : dow === 6 ? 'bg-blue-50' : 'bg-gray-100'
+                  } ${diff > 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  {diff > 0 ? diff : ''}
                 </td>
               )
             })}
