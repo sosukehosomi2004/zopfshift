@@ -17,7 +17,7 @@ const WORKPLACE_HEX: Record<string, string> = {
   CAFE: 'FEF08A',   // bg-yellow-200
   FLOOR: 'BBF7D0',  // bg-green-200
   L: 'FECACA',      // bg-red-200
-  F: 'FFFFFF',      // 塗りつぶしなし (白)
+  F: 'D1D5DB',      // 灰色 (gray-300)
   OFFICE: 'F3E8FF', // bg-purple-100
   OTHER: 'E7E5E4',  // bg-stone-200
 }

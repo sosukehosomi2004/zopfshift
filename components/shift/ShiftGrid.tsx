@@ -70,13 +70,12 @@ const WORKPLACE_LABEL: Record<string, string> = {
 }
 
 // 勤務場所色 (薄めのパステル: -100〜-200 を基本)
-// F は塗りつぶし無し
 const CELL_COLOR_BY_WORKPLACE: Record<string, string> = {
   FACTORY: 'bg-[#0AB4CC]/15',
   CAFE: 'bg-yellow-200',
   FLOOR: 'bg-green-200',
   L: 'bg-red-200',
-  F: '',
+  F: 'bg-gray-300',
   OFFICE: 'bg-purple-100',
   OTHER: 'bg-stone-200',
 }
@@ -86,7 +85,7 @@ const LEGEND_COLOR: Record<string, string> = {
   CAFE: 'bg-yellow-200 border-yellow-400',
   FLOOR: 'bg-green-200 border-green-400',
   L: 'bg-red-200 border-red-400',
-  F: 'bg-white border-gray-400',
+  F: 'bg-gray-300 border-gray-500',
   OFFICE: 'bg-purple-100 border-purple-300',
   OTHER: 'bg-stone-200 border-stone-400',
 }
