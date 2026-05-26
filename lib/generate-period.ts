@@ -856,6 +856,23 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
           minFullTimeCount: r.minFullTimeCount,
           baseFullTimeCount: r.baseFullTimeCount,
         }))
+        // 工場スロット (cross-move時のスロット充足チェック用)
+        const factorySlotsRaw = await prisma.workplaceSlot.findMany({
+          where: { workplace: 'FACTORY' },
+          include: { skills: true, rules: true },
+        })
+        const factorySlots: SlotInput[] = factorySlotsRaw.map((s) => ({
+          id: s.id,
+          workplace: s.workplace as Workplace,
+          name: s.name,
+          sortOrder: s.sortOrder,
+          requiredSkillIds: s.skills.map((sk) => sk.skillId),
+          rules: s.rules.map((r) => ({
+            dayType: r.dayType as DayType,
+            isRequired: r.isRequired,
+            groupKey: r.groupKey,
+          })),
+        }))
         const post = postProcessV2({
           employees: v2Employees,
           dateInfos: v2DateInfos,
@@ -864,6 +881,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
           holidayCount,
           initialConsecutive: initialConsecutiveWork,
           assignments: merged.assignments,
+          slots: factorySlots,
         })
         merged.assignments = post.assignments
         for (const phaseLog of post.logs) {

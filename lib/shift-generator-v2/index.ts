@@ -21,6 +21,7 @@ import type {
   GeneratorV2Input,
   GeneratorV2Output,
   PatternAssignment,
+  SlotInput,
   StaffingRuleInput,
   Workplace,
 } from './types'
@@ -200,6 +201,7 @@ export function postProcessV2({
   holidayCount,
   initialConsecutive,
   assignments,
+  slots,
 }: {
   employees: EmployeeInput[]
   dateInfos: DateInfo[]
@@ -208,6 +210,7 @@ export function postProcessV2({
   holidayCount: number
   initialConsecutive: Record<string, number>
   assignments: DayAssignment[]
+  slots?: SlotInput[] // 工場スロット (移動時の充足チェック用)
 }): { assignments: DayAssignment[]; logs: { phase: string; entries: string[] }[] } {
   const logs: { phase: string; entries: string[] }[] = []
   let current = [...assignments]
@@ -216,11 +219,11 @@ export function postProcessV2({
   // Step 3.5: クロスワークプレース移動
   // 工場の出勤者が必要数を上回ってる日 (余り人員あり) について、
   // カフェ・フロアの不足を埋めるために再配置する。
-  // 工場の必要数は厳守 (factoryCount > factoryRequired のみ移動可)。
+  // 工場の必要数 + ポジション (slot) 充足を厳守。
   // 注: 休みの工場員を「ヘルプ追加」するのは generate-period.ts 内の
   //     v1 tryAssign が先に担当済み (このフェーズは余剰の再配置)。
   const moved = applyCrossMove(
-    { employees, dateInfos, staffingRules, anchors },
+    { employees, dateInfos, staffingRules, anchors, slots },
     current,
   )
   current = moved.assignments

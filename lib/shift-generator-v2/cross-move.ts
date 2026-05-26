@@ -12,6 +12,7 @@ import type {
   DateInfo,
   DayAssignment,
   EmployeeInput,
+  SlotInput,
   StaffingRuleInput,
   Workplace,
 } from './types'
@@ -22,6 +23,7 @@ type Ctx = {
   dateInfos: DateInfo[]
   staffingRules: StaffingRuleInput[]
   anchors: Anchor[]
+  slots?: SlotInput[] // 工場のスロット情報 (移動時のスロット充足チェック用)
 }
 
 /** ある日その勤務地で何人出勤か */
@@ -185,6 +187,11 @@ export function applyCrossMove(
             current[idx] = before // ロールバック
             continue
           }
+          // 工場スロット充足チェック (工場のポジション・スキルが埋まるか)
+          if (ctx.slots && !checkFactorySlotCoverage(current, ctx.employees, ctx.slots, day.date, day.dayType)) {
+            current[idx] = before // ロールバック (この人を抜くと工場ポジション穴)
+            continue
+          }
           // 移動成功
           movedHistory.set(mover.id, (movedHistory.get(mover.id) ?? 0) + 1)
           movedCount++
@@ -198,6 +205,73 @@ export function applyCrossMove(
   }
 
   return { assignments: current, movedCount }
+}
+
+/**
+ * 工場スロット充足チェック
+ *
+ * その日その勤務地で、必須スロット (workplace slots) が
+ * 残った出勤者で全部埋められるか (バイパーマッチング) を判定。
+ * (この場合は工場のスロット充足を確認)
+ */
+function checkFactorySlotCoverage(
+  assignments: DayAssignment[],
+  employees: EmployeeInput[],
+  slots: SlotInput[],
+  date: string,
+  dayType: 'WEEKDAY_MON_THU' | 'FRIDAY' | 'HOLIDAY',
+): boolean {
+  const factoryWorkers = assignments
+    .filter((a) => a.date === date && a.workplace === 'FACTORY')
+    .map((a) => employees.find((e) => e.id === a.employeeId))
+    .filter((e): e is EmployeeInput => !!e)
+
+  const factorySlots = slots.filter((s) => s.workplace === 'FACTORY')
+  if (factorySlots.length === 0) return true
+
+  // dayType ベースで必要なスロットを決定
+  const required: SlotInput[] = []
+  const groups = new Map<string, SlotInput[]>()
+  for (const slot of factorySlots) {
+    const rule = slot.rules.find((r) => r.dayType === dayType)
+    if (!rule) continue
+    if (rule.isRequired) {
+      required.push(slot)
+    } else if (rule.groupKey) {
+      if (!groups.has(rule.groupKey)) groups.set(rule.groupKey, [])
+      groups.get(rule.groupKey)!.push(slot)
+    }
+  }
+  // グループは1つだけ埋まればOK扱いで required に1個ずつ追加
+  for (const [, g] of Array.from(groups.entries())) {
+    required.push(g[0])
+  }
+  if (required.length === 0) return true
+
+  // MRV (候補少ない順) + バックトラック
+  const sorted = [...required].sort((a, b) => {
+    const ac = factoryWorkers.filter((w) =>
+      a.requiredSkillIds.some((s) => w.skillIds.includes(s)),
+    ).length
+    const bc = factoryWorkers.filter((w) =>
+      b.requiredSkillIds.some((s) => w.skillIds.includes(s)),
+    ).length
+    return ac - bc
+  })
+  const used = new Set<string>()
+  function solve(idx: number): boolean {
+    if (idx >= sorted.length) return true
+    const slot = sorted[idx]
+    for (const w of factoryWorkers) {
+      if (used.has(w.id)) continue
+      if (!slot.requiredSkillIds.some((s) => w.skillIds.includes(s))) continue
+      used.add(w.id)
+      if (solve(idx + 1)) return true
+      used.delete(w.id)
+    }
+    return false
+  }
+  return solve(0)
 }
 
 /** 習熟度の前方チェック */
