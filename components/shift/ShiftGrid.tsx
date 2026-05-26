@@ -327,15 +327,19 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
       {/* 凡例 */}
       <div className="flex flex-wrap gap-3 items-center text-xs">
         <span className="text-gray-500 font-medium">凡例:</span>
-        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => (
+        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OTHER'].map((wp) => (
           <span key={wp} className="flex items-center gap-1.5">
             <span className={`inline-block w-4 h-4 rounded border ${LEGEND_COLOR[wp]}`} />
             <span className="text-gray-700">{WORKPLACE_LABEL[wp]}</span>
           </span>
         ))}
         <span className="flex items-center gap-1.5 ml-2">
-          <span className="inline-block w-4 h-4 rounded bg-gray-100 border border-gray-300 text-center text-gray-300 leading-none">/</span>
+          <span className="inline-block w-4 h-4 rounded bg-blue-100 border border-gray-300 text-center text-gray-400 leading-none">/</span>
           <span className="text-gray-700">休み</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-4 h-4 rounded bg-blue-300 border border-blue-500 text-center text-gray-900 leading-none text-[10px] font-semibold">有</span>
+          <span className="text-gray-700">有給</span>
         </span>
       </div>
 
