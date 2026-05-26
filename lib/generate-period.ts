@@ -609,12 +609,22 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         const dayType = dow === 0 || dow === 6 ? 'HOLIDAY' : dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU'
         const cafeMin = requiredOf('CAFE', dayType)
         const floorMin = requiredOf('FLOOR', dayType)
+        // フロア: PT で後から埋められる前提なので、正社員最低人数 (minFullTimeCount) のみ
+        // を満たすようにヘルプ要員を投入する。総人数の不足は SOFT 違反として残す。
+        const floorFTMin = allStaffingRules.find(
+          (r) => r.workplace === 'FLOOR' && r.dayType === dayType,
+        )?.minFullTimeCount ?? 0
 
         const cafeToday = merged.assignments.filter((a) => a.date === date && a.workplace === 'CAFE')
         const floorToday = merged.assignments.filter((a) => a.date === date && a.workplace === 'FLOOR')
+        const floorFTToday = floorToday.filter((a) => {
+          const emp = allEmpMap.get(a.employeeId)
+          return emp?.employmentType === 'FULL_TIME'
+        })
 
         let cafeShort = Math.max(0, cafeMin - cafeToday.length)
-        let floorShort = Math.max(0, floorMin - floorToday.length)
+        // floorShort は合計不足ではなく「正社員最低人数の不足」を採用
+        let floorShort = Math.max(0, floorFTMin - floorFTToday.length)
 
         // ============================================================
         // 工場優先: カフェ/フロアにヘルプする前に、工場 自身の不足を埋める
