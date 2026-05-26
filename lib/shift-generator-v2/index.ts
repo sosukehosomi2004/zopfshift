@@ -245,5 +245,13 @@ export function postProcessV2({
   current = p2b.assignments
   logs.push({ phase: 'phase2b-continuity', entries: p2b.log })
 
+  // 最終 HARD 残存チェック (デバッグ用)
+  const finalRepairCheck = repairHard(
+    { employees, dateInfos, staffingRules, anchors, holidayCount, initialConsecutive, paidLeaveKeys },
+    current,
+  )
+  current = finalRepairCheck.assignments
+  logs.push({ phase: 'final-hard-check', entries: finalRepairCheck.log })
+
   return { assignments: current, logs }
 }

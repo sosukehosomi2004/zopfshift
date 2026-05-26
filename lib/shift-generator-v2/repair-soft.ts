@@ -88,6 +88,8 @@ export function phase2a(
 
           // ゲイン計算
           const trial = applyTrial(current, emp.id, date, sv.workplace)
+          // 防御: 公休数を下回ったら却下
+          if (restCount(emp.id, trial, ctx, paidLeaveKeys) < ctx.holidayCount) continue
           // 5連勤チェック
           if (countMaxConsecutive(emp.id, trial, ctx, paidLeaveKeys) > 5) continue
           const newSoft = softCount(trial, ctx.dateInfos, ctx.staffingRules, ctx.employees)
