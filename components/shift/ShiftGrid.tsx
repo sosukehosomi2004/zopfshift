@@ -208,7 +208,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
     employees: Employee[]
     maxMovedIn: number
     movedInPerDay: Map<string, number>
-  }> = ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER'].map((wp) => {
+  }> = ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER'].map((wp) => {
     const primary = allEmployees.filter((e) => e.primaryWorkplace === wp)
     const movedInPerDay = new Map<string, number>()
     for (const a of assignments) {
@@ -248,7 +248,7 @@ export function ShiftGrid({ startDate, endDate, assignments, allEmployees: allEm
       {/* 凡例 */}
       <div className="flex flex-wrap gap-3 items-center text-xs">
         <span className="text-gray-500 font-medium">凡例:</span>
-        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OTHER'].map((wp) => (
+        {['FACTORY', 'CAFE', 'FLOOR', 'L', 'OTHER'].map((wp) => (
           <span key={wp} className="flex items-center gap-1.5">
             <span className={`inline-block w-4 h-4 rounded border ${LEGEND_COLOR[wp]}`} />
             <span className="text-gray-700">{WORKPLACE_LABEL[wp]}</span>

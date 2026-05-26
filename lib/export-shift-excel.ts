@@ -104,7 +104,7 @@ export function exportShiftToExcel(params: {
 
   // 移動者マップ
   const movedInPerDayByWp: Record<string, Map<string, number>> = {}
-  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']) {
+  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']) {
     const m = new Map<string, number>()
     for (const a of assignments) {
       if (a.workplace !== wp) continue
@@ -223,7 +223,7 @@ export function exportShiftToExcel(params: {
   }
 
   // 各勤務場所セクション
-  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'F', 'OFFICE', 'OTHER']) {
+  for (const wp of ['FACTORY', 'CAFE', 'FLOOR', 'L', 'OFFICE', 'OTHER']) {
     const primary = allEmployees.filter((e) => e.primaryWorkplace === wp)
     const movedInMap = movedInPerDayByWp[wp]
     const maxMovedIn = Math.max(0, ...Array.from(movedInMap.values()))
