@@ -13,7 +13,7 @@ type SnapshotEntry = {
 }
 
 // POST /api/shift-periods/[id]/to-draft
-// REVIEW / ADJUSTING / CONFIRMED → DRAFT。候補シフトを削除して再編集可能にする。
+// ADJUSTING / CONFIRMED → DRAFT。候補シフトを削除して再編集可能にする。
 // シフト生成押下前にスナップショットされた draftSnapshot から PreAssignment を復元する。
 export async function POST(_req: NextRequest, { params }: Params) {
   const { id } = await params

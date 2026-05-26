@@ -308,8 +308,7 @@ model PreAssignmentExclusion {
 enum PeriodStatus {
   DRAFT
   GENERATING
-  REVIEW
-  ADJUSTING  // 候補確定後・手動調整中 (編集可)
+  ADJUSTING  // 自動生成後・手動調整中 (編集可)
   CONFIRMED  // 最終確定 (編集不可)
 }
 

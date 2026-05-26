@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { generateShiftCandidates } from '@/lib/shift-generator'
 import { generateShiftCandidatesV2, postProcessV2 } from '@/lib/shift-generator-v2'
 import { collectAnchors } from '@/lib/shift-generator-v2/anchors'
 import {
@@ -11,13 +10,8 @@ import {
   DayType,
   Workplace,
 } from '@/lib/shift-generator/types'
-import { formatDate, buildDateInfos } from '@/lib/shift-generator/utils'
+import { formatDate } from '@/lib/shift-generator/utils'
 import { expandRecurringRules } from '@/lib/expand-recurring-rules'
-
-// v2 (パターンベース + フィードバック) を使うかどうか。
-// 環境変数で切り替え可能 (デフォルトは v1)。
-// 本番では SHIFT_GENERATOR_V2=true を Vercel に設定すると有効化。
-const USE_V2 = process.env.SHIFT_GENERATOR_V2 === 'true'
 
 /**
  * 移動後の最終配置でスロット割当を再計算する。
@@ -139,7 +133,7 @@ export type GeneratePeriodResult =
 
 /**
  * 1つのシフト期間の自動生成を実行する。
- * - status: GENERATING にしてから生成、成功で REVIEW、失敗で DRAFT に戻す
+ * - status: GENERATING にしてから生成、成功で ADJUSTING、失敗で DRAFT に戻す
  * - 戻り値で成功/失敗を返す（throwしない）
  */
 export async function generatePeriod(periodId: string): Promise<GeneratePeriodResult> {
@@ -386,19 +380,14 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         initialConsecutiveWork,
       }
 
-      // v2 を環境変数で切替。デフォルトは v1。
-      const result = USE_V2
-        ? generateShiftCandidatesV2(input)
-        : generateShiftCandidates(input)
+      const result = generateShiftCandidatesV2(input)
       resultsByWorkplace[workplace] = result.candidates
       if (result.errors.length > 0) {
         allErrors.push(...result.errors.map((e) => `${workplace}: ${e}`))
       }
-      if (USE_V2) {
-        const meta = (result as { meta?: { anchorCount: number; repairLog: string[] } }).meta
-        if (meta) {
-          console.log(`[v2:${workplace}] anchors=${meta.anchorCount}, repairs=${meta.repairLog.length}`)
-        }
+      const meta = (result as { meta?: { anchorCount: number; repairLog: string[] } }).meta
+      if (meta) {
+        console.log(`[v2:${workplace}] anchors=${meta.anchorCount}, repairs=${meta.repairLog.length}`)
       }
     }
 
@@ -608,7 +597,6 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
         const dow = new Date(date).getDay()
         const dayType = dow === 0 || dow === 6 ? 'HOLIDAY' : dow === 5 ? 'FRIDAY' : 'WEEKDAY_MON_THU'
         const cafeMin = requiredOf('CAFE', dayType)
-        const floorMin = requiredOf('FLOOR', dayType)
         // フロア: PT で後から埋められる前提なので、正社員最低人数 (minFullTimeCount) のみ
         // を満たすようにヘルプ要員を投入する。総人数の不足は SOFT 違反として残す。
         const floorFTMin = allStaffingRules.find(
@@ -960,9 +948,9 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       merged.score = totalScore + cafeFloorCount
 
       // ============================================================
-      // v2 ポスト処理: Phase 1 HARD修復 + Phase 2a/2b SOFT最適化
+      // v2 ポスト処理: Phase 1 HARD修復 + Phase 2a-2g SOFT最適化
       // ============================================================
-      if (USE_V2) {
+      {
         const v2Anchors = collectAnchors({
           startDate,
           endDate,
@@ -1060,7 +1048,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
 
     // v2 で SOFT 最適化後、各候補の HARD/SOFT を再評価する必要がある
     // (postProcessV2 が assignments を書き換えたため)
-    if (USE_V2) {
+    {
       const reCheckDates: string[] = []
       {
         const cur = new Date(startDate)
@@ -1155,6 +1143,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
           candidateIndex: candidate.candidateIndex,
           score: candidate.score ?? 0,
           violations: candidate.violations,
+          isSelected: true,
         },
       })
 
@@ -1212,7 +1201,7 @@ export async function generatePeriod(periodId: string): Promise<GeneratePeriodRe
       }
     }
 
-    await prisma.shiftPeriod.update({ where: { id: periodId }, data: { status: 'REVIEW' } })
+    await prisma.shiftPeriod.update({ where: { id: periodId }, data: { status: 'ADJUSTING' } })
 
     return {
       ok: true,

@@ -84,7 +84,7 @@ export default function RequestsPage() {
         const periods: { id: string; startDate: string; endDate: string; status: string; _count: { candidates: number } }[] = await periodsRes.json()
         const matchingPeriod = periods.find(
           (p) =>
-            (p.status === 'REVIEW' || p.status === 'ADJUSTING' || p.status === 'CONFIRMED') &&
+            (p.status === 'ADJUSTING' || p.status === 'CONFIRMED') &&
             p._count.candidates > 0 &&
             dateStr >= p.startDate.split('T')[0] &&
             dateStr <= p.endDate.split('T')[0],

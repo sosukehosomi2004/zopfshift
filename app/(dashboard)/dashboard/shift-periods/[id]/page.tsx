@@ -61,7 +61,6 @@ type Candidate = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: '下書き',
   GENERATING: '生成中',
-  REVIEW: 'レビュー中',
   ADJUSTING: '手動調整',
   CONFIRMED: '確定',
 }
@@ -72,9 +71,7 @@ export default function ShiftPeriodDetailPage() {
 
   const [period, setPeriod] = useState<ShiftPeriod | null>(null)
   const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [selectedCandidate, setSelectedCandidate] = useState<number>(0)
   const [generating, setGenerating] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const [generateResult, setGenerateResult] = useState<string | null>(null)
   const [allEmployees, setAllEmployees] = useState<Candidate['assignments'][0]['employee'][]>([])
   const [holidays, setHolidays] = useState<{ date: string; name: string }[]>([])
@@ -178,7 +175,7 @@ export default function ShiftPeriodDetailPage() {
       fetchPendingRequests()
       fetchPreAssignments()
       fetchAllEmployees()
-    } else if (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') {
+    } else if (period.status === 'ADJUSTING' || period.status === 'CONFIRMED') {
       fetchCandidates()
       fetchPreAssignments()
       fetchPendingRequests() // 生成後も申請を表示
@@ -211,20 +208,6 @@ export default function ShiftPeriodDetailPage() {
     } finally {
       setGenerating(false)
     }
-  }
-
-  const handleConfirm = async () => {
-    const target = enrichedCandidates[selectedCandidate] ?? candidates[selectedCandidate]
-    if (!target) return
-    if (!confirm(`候補${selectedCandidate + 1}でシフトを確定しますか？`)) return
-    setConfirming(true)
-    await fetch(`/api/shift-periods/${id}/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ candidateId: target.id }),
-    })
-    setConfirming(false)
-    fetchPeriod()
   }
 
   // 候補ごとに SOFT 違反をクライアント側で再計算し、件数で並べ替え
@@ -263,7 +246,7 @@ export default function ShiftPeriodDetailPage() {
 
   if (!period) return <div className="text-center py-12 text-gray-400">読み込み中...</div>
 
-  const currentCandidate = enrichedCandidates[selectedCandidate] ?? candidates[selectedCandidate]
+  const currentCandidate = enrichedCandidates[0] ?? candidates[0]
 
   return (
     <div>
@@ -276,12 +259,11 @@ export default function ShiftPeriodDetailPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-gray-900">{period.label}</h1>
             <PageHelp title={`シフト期間 (${STATUS_LABELS[period.status]}) - ヘルプ`}>
-              <h3>シフト期間の4つの状態</h3>
+              <h3>シフト期間の3つの状態</h3>
               <p>ステータスごとにできる操作が変わります。今は <strong>{STATUS_LABELS[period.status]}</strong> 状態です。</p>
               <ul>
                 <li><strong>下書き (DRAFT)</strong>: 申請承認・事前確定セル編集・自動生成の準備期間</li>
-                <li><strong>レビュー中 (REVIEW)</strong>: 候補5件から1つ選んで確定</li>
-                <li><strong>手動調整 (ADJUSTING)</strong>: 候補を確定した後、セルを手動で編集できる</li>
+                <li><strong>手動調整 (ADJUSTING)</strong>: 自動生成後の手動編集ができる</li>
                 <li><strong>確定 (CONFIRMED)</strong>: シフト確定済み、編集不可 (確定取消で戻せる)</li>
               </ul>
 
@@ -401,17 +383,6 @@ export default function ShiftPeriodDetailPage() {
             </button>
           )}
 
-          {period.status === 'REVIEW' && candidates.length > 0 && (
-            <button
-              onClick={handleConfirm}
-              disabled={confirming}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
-            >
-              <Check className="w-4 h-4" />
-              {confirming ? '確定中...' : '候補を確定'}
-            </button>
-          )}
-
           {period.status === 'ADJUSTING' && (
             <button
               onClick={async () => {
@@ -445,7 +416,7 @@ export default function ShiftPeriodDetailPage() {
             </button>
           )}
 
-          {currentCandidate && (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (
+          {currentCandidate && (period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (
             <button
               onClick={() => {
                 exportShiftToExcel({
@@ -640,8 +611,8 @@ export default function ShiftPeriodDetailPage() {
         </div>
       )}
 
-      {/* 生成後の PENDING 申請通知 (REVIEW / ADJUSTING / CONFIRMED) */}
-      {(period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (() => {
+      {/* 生成後の PENDING 申請通知 (ADJUSTING / CONFIRMED) */}
+      {(period.status === 'ADJUSTING' || period.status === 'CONFIRMED') && (() => {
         const pendings = pendingRequests.filter((r) => r.status === 'PENDING')
         if (pendings.length === 0) return null
         if (!pendingPanelOpen) {
@@ -729,28 +700,9 @@ export default function ShiftPeriodDetailPage() {
         )
       })()}
 
-      {/* 候補セレクタ + グリッド */}
+      {/* グリッド */}
       {candidates.length > 0 && (
         <>
-          {/* 候補タブ (違反少ない順に並んでいる) */}
-          <div className="flex gap-2 mb-4">
-            {enrichedCandidates.map((c, i) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedCandidate(i)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCandidate === i
-                    ? 'bg-[#0AB4CC] text-white'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-[#0AB4CC]/30'
-                } ${c.isSelected ? 'ring-2 ring-green-400' : ''}`}
-              >
-                候補 {i + 1}
-                <span className="ml-2 text-xs opacity-75">(違反{c.recalcViolations.length})</span>
-                {c.isSelected && <span className="ml-1 text-xs">(確定)</span>}
-              </button>
-            ))}
-          </div>
-
           {/* SOFT違反パネル（リアルタイム計算: 人数+ポジション+正社員） */}
           {currentCandidate && (() => {
             const periodStart = new Date(period.startDate)
@@ -779,7 +731,7 @@ export default function ShiftPeriodDetailPage() {
               staffingRules,
             })
 
-            const hasPending = (period.status === 'REVIEW' || period.status === 'ADJUSTING' || period.status === 'CONFIRMED')
+            const hasPending = (period.status === 'ADJUSTING' || period.status === 'CONFIRMED')
               && pendingRequests.some((r) => r.status === 'PENDING')
             const stickyTop = hasPending ? 'top-[14rem]' : 'top-4'
 
@@ -944,7 +896,7 @@ export default function ShiftPeriodDetailPage() {
                 holidays={holidays}
                 preAssignedKeys={period.status === 'CONFIRMED' ? undefined : new Set(preAssignments.map((p) => `${p.employeeId}-${p.date.split('T')[0]}`))}
                 staffingRules={staffingRules}
-                editable={period.status === 'ADJUSTING' && currentCandidate?.isSelected}
+                editable={period.status === 'ADJUSTING'}
                 onEdit={async ({ employeeId, date, workplace, memo, color }) => {
                   await fetch(`/api/shift-periods/${id}/assignments`, {
                     method: 'PATCH',

@@ -93,12 +93,11 @@ export function findHardViolations(ctx: Ctx, assignments: DayAssignment[]): Hard
 
     // 公休数チェック
     let restCount = 0
-    let paidCount = 0
     for (const di of ctx.dateInfos) {
       const isPaid = ctx.paidLeaveKeys.has(`${emp.id}|${di.date}`)
       const isWork = dayWorks.has(di.date)
-      if (isPaid) paidCount++
-      else if (!isWork) restCount++
+      if (isPaid) continue
+      if (!isWork) restCount++
     }
     if (restCount < ctx.holidayCount) {
       violations.push({

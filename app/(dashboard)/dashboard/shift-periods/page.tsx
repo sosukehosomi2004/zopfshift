@@ -47,7 +47,6 @@ type BulkGenerateResult = {
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: '下書き',
   GENERATING: '生成中',
-  REVIEW: 'レビュー中',
   ADJUSTING: '手動調整',
   CONFIRMED: '確定',
 }
@@ -55,7 +54,6 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
   GENERATING: 'bg-yellow-100 text-yellow-700',
-  REVIEW: 'bg-blue-100 text-blue-700',
   ADJUSTING: 'bg-purple-100 text-purple-700',
   CONFIRMED: 'bg-green-100 text-green-700',
 }

@@ -154,7 +154,7 @@ export function applyCrossMove(
   ctx: Ctx,
   assignments: DayAssignment[],
 ): { assignments: DayAssignment[]; movedCount: number } {
-  let current = [...assignments]
+  const current = [...assignments]
   const movedHistory = new Map<string, number>()
   let movedCount = 0
 
