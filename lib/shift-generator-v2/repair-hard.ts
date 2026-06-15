@@ -336,9 +336,12 @@ function findReplacement(
     }
     const dayWork = workMap.get(emp.id) ?? new Map()
     const currentWp = dayWork.get(date)
-    if (currentWp === wp) continue
+    // 補填要員は「新規出勤させられる＝その日休みの人」のみ。
+    // 別勤務場所であっても既に勤務中の人を補填に使うと、呼び出し側が
+    // 既存レコードを消さずに push するため (employeeId, date) が重複する。
+    if (currentWp) continue
     if (isRestLocked(anchorMap, emp.id, date)) continue
-    if (isWorkLocked(anchorMap, emp.id, date) && currentWp && currentWp !== wp) continue
+    if (isWorkLocked(anchorMap, emp.id, date)) continue
     // 公休余裕
     const restCount = ctx.dateInfos.length - dayWork.size
     if (restCount <= ctx.holidayCount) continue
